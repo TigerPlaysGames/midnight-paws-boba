@@ -14,6 +14,23 @@ After the menu says **Ready to play offline**, you can reopen the same link with
 
 To run locally, serve the repository with `python -m http.server 8000` and open `http://localhost:8000/`. GitHub Pages serves the root of `main`. When changing the game files, bump the cache version in `sw.js` so returning players receive the update after closing old tabs.
 
+### Midnight Market
+
+Choose **Midnight Market · Restaurants** on the main menu. Noren Noodle Bar opens free. Use earnings from either the café or your restaurants to open the other five kitchens. Each restaurant has three dishes, its own equipment, three upgrade paths and a one-time $20 bonus for serving its entire menu.
+
+Choose Cozy Service for a single guest, Dinner Rush for a 65-second queue, or a six-meal Catering Contract for a $35 bonus. Select a ticket, prep, cook, choose its finishing ingredient and serve. Tending the cooktop halfway through earns an extra $2. A second cooktop lets you work on two tickets in parallel. Pause Shift freezes the clock. Resume from the same restaurant, including after an offline reload or a save-file transfer.
+
+The painted counter works with mouse, keyboard and touch. **Switch to first person** opens a 3D kitchen on WebGL-capable devices. Drag to look, press A/D to move along the counter, or tap a station to move there and use it. The original boba café also cycles between first person, third person and a fixed counter using the view button or V.
+
+| Restaurant | Menu focus |
+|---|---|
+| Noren Noodle Bar · Japan | Udon |
+| Red Tent Kitchen · South Korea | Tteokbokki |
+| Little Bánh Mì · Vietnam | Bánh mì |
+| Lime & Wok · Thailand | Pad thai |
+| Moonrise Tiffin · India | Dosa |
+| Pandan Corner · Malaysia | Nasi lemak |
+
 ### Controls (café)
 | Key | Action |
 |---|---|
@@ -23,7 +40,7 @@ To run locally, serve the repository with `python -m http.server 8000` and open 
 | Hold E or 1–9 (0 for the 10th) | Pour or scoop |
 | Space | Shake, then serve |
 | N | Notes |
-| V | First / third person |
+| V | First person / third person / fixed counter |
 | Scroll | Zoom |
 | Esc | Close a window |
 
@@ -97,3 +114,13 @@ If Three.js can't load (offline), the game runs in a 2D fallback, so most menus 
 ## Ideas for next steps
 - Split the file into modules (`audio.js`, `cafe3d.js`, `shops.js`, …) to make it easier to edit.
 - Remove dead code from earlier layers, like the old town (`buildTown`), The Purr Lounge (`buildBar`) and Boba Catch.
+
+### Restaurant artwork
+
+The six WebP backgrounds in [assets/market](assets/market/) were extracted from one original atlas generated with the built-in image generation tool.
+
+<details><summary>Art prompt</summary>
+
+One landscape 3:2 game texture atlas, exactly three equal-width columns and two equal-height rows, edge-to-edge square tiles without gutters, no writing, no words, no letters. Six distinct inviting tiny cat-run restaurants at midnight. Illustrated hand-painted gouache with dark plum outlines, luminous windows, appetizing food, intricate cozy shop interiors, each viewed from the customer side looking over a wooden counter, friendly cat cook prominent. Top left: Japanese indigo noren udon shop with steaming noodle bowls. Top middle: Korean crimson tented tteokbokki stall with red sauce pans and rice cakes. Top right: Vietnamese mint-painted bánh mì bakery with baguettes and pickled vegetables. Bottom left: Bangkok teal pad thai wok stall with lime wedges. Bottom middle: South Indian ochre dosa tiffin counter with brass vessels and rolled golden dosas. Bottom right: Malaysian jade nasi lemak stall with banana leaves, coconut rice, sambal and egg. Distinct architecture, handmade tactile detail, nighttime city ambience. Fill each square with its own composition. No border, text, UI, watermark or labels.
+
+</details>

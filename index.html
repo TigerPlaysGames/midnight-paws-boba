@@ -9,6 +9,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Mochiy+Pop+One&family=Pacifico&display=swap">
 <script src="assets/three-r128.min.js"></script>
+<link rel="stylesheet" href="market.css">
+<script src="market-scene.js"></script>
+<script src="market.js"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -758,6 +761,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
     <button type="button" class="ibtn" id="leaveStation">Done · back to counter</button>
     <div class="benches" id="benches"></div>
     <div class="prep">
+      <button type="button" class="btn" id="counterServe" hidden>Serve drink</button>
       <div class="next" id="next"><i></i><span id="nextTxt">Opening up…</span></div>
       <div class="tile dock" id="dock" data-drop="dock">
         <button class="stack" id="stack" type="button" aria-label="Grab a cup">
@@ -837,6 +841,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
   <div class="mtitle">Midnight Paws<small>boba café</small></div>
   <div class="mpanel">
     <button class="btn startbtn" id="playBtn" type="button">Start</button>
+    <button type="button" id="marketBtn">Midnight Market · Restaurants</button>
     <div class="mrow" id="mrowMain">
       <button class="mbtn" id="townBtn" type="button"><b>Map</b><small>Shops</small></button>
       <button class="mbtn" id="designBtn" type="button"><b>Customize Café</b><small>Lv 5</small></button>
@@ -850,6 +855,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
   <p class="mfoot">made by kaylyn heheh</p>
 </div>
 </div>
+<dialog id="marketDialog" aria-label="Midnight Market restaurants"><header class="mk-nav"><button class="mk-back" type="button">Back to café</button><span class="mk-wallet" aria-label="Available funds"></span></header><div class="mk-body"></div><div class="mk-message" role="status"></div></dialog>
 <div class="modal top" id="backupPanel" hidden><div class="card" role="dialog" aria-label="Save backups">
   <button class="close" data-close type="button" aria-label="Close">×</button>
   <h2>Save backups</h2><p>Download your café to keep a copy or move it to another device.</p>
@@ -1487,6 +1493,8 @@ function renderAlbum(){
 
 /* ---------- Next step ---------- */
 function renderNext(){
+  $('#counterServe').hidden=!(S.counterView&&G.cup?.shaken);
+  $('#counterServe').textContent=G.mode==='lab'?'Name drink':'Serve drink';
   if(G.mode==='lab'){const c=G.cup;let txt='Grab a cup',glow='#stack';if(c){glow=null;txt=c.shaken?'Name your drink!':c.at==='shaker'?'Keep tapping to seal':canShake(c)?'Mix more, or shake':'Mix anything!';if(!c.shaken&&canShake(c)&&c.at!=='shaker')glow='#shaker';}
     $('#nextTxt').textContent=txt;document.querySelectorAll('.glow').forEach(e=>{if(e.id!=='noteTab')e.classList.remove('glow');});if(glow)$(glow).classList.add('glow');return;}
   const c=G.cup;let txt='Waiting for a cat…',glow=null;
@@ -1752,6 +1760,7 @@ window.addEventListener('blur',()=>{if(G.pour)endPour();});
 benches.addEventListener('keydown',e=>{const eq=e.target.closest('.eq');if(!eq||(e.key!==' '&&e.key!=='Enter'))return;e.preventDefault();e.stopPropagation();if(!e.repeat)startAction(eq.dataset.ing);});
 benches.addEventListener('keyup',e=>{if(e.target.closest('.eq')&&(e.key===' '||e.key==='Enter'))endPour();});
 $('#stack').onclick=newCup;
+$('#counterServe').onclick=serve;
 $('#shaker').addEventListener('pointerdown',e=>{e.preventDefault();shakeOnce();});
 $('#trash').addEventListener('click',tossCup);
 $('#takeBtn').onclick=takeOrder;
@@ -2255,7 +2264,7 @@ function init3D(){
   }catch(err){M3.fail=1;}
 }
 function loop3D(now){
-  if($('#menu').hidden||!M3.ok){M3.run=false;return;}
+  if($('#menu').hidden||$('#marketDialog').open||!M3.ok){M3.run=false;return;}
   const dt=Math.min(.05,(now-M3.last)/1000);M3.last=now;const t=now/1000;
   if(!M3.drag&&!reduce)M3.ang+=dt*.07;
   const d=M3.dist||14,ce=Math.cos(M3.elev);M3.cam.position.set(Math.sin(M3.ang)*d*ce,1.2+d*Math.sin(M3.elev),Math.cos(M3.ang)*d*ce);M3.cam.lookAt(0,1.9,0);
@@ -2693,7 +2702,8 @@ function setMode(m){
   G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=G.cup?.shakeP||0;
   if(G.cup&&C3.ok&&G.cup.at!=='shaker')G.cup.at='dock';
   document.body.classList.toggle('lab',m==='lab');document.body.classList.toggle('decorating',m==='decor');
-  document.body.classList.toggle('walk',C3.ok&&m!=='decor');
+  document.body.classList.toggle('walk',C3.ok&&m!=='decor'&&!S.counterView);
+  document.body.classList.toggle('counter-camera',!!(C3.ok&&m!=='decor'&&S.counterView));
   $('.neon').textContent=m==='lab'?'drink lab':'boba';
   if(C3.ok){C3.camMode=m==='decor'?'decor':'cafe';C3.pick=null;C3.sel=-1;C3.heldSig=null;showSel3();if(m==='decor')renderDecorPanel();}
   renderBar();renderShelf();renderNext();
@@ -3170,7 +3180,8 @@ function setMode(m){
   G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=G.cup?.shakeP||0;
   if(G.cup&&C3.ok&&G.cup.at!=='shaker')G.cup.at='dock';
   document.body.classList.toggle('lab',m==='lab');document.body.classList.toggle('decorating',m==='decor');
-  document.body.classList.toggle('walk',C3.ok&&m!=='decor');
+  document.body.classList.toggle('walk',C3.ok&&m!=='decor'&&!S.counterView);
+  document.body.classList.toggle('counter-camera',!!(C3.ok&&m!=='decor'&&S.counterView));
   $('.neon').textContent=m==='lab'?'drink lab':'boba';
   if(C3.ok){C3.camMode=m==='decor'?'decor':'cafe';C3.pick=null;C3.sel=-1;C3.moving=-1;C3.heldSig=null;
     if(m==='decor'){C3.dw={x:0,z:1.2,yaw:0,pitch:-.25};C3.dView='walk';}
@@ -3846,6 +3857,7 @@ function loopC3Body(now){
     const ey=1.72+bob,y=C3.fp.yaw,p=C3.fp.pitch;
     cam.position.set(W3.x,ey,W3.z);cam.lookAt(W3.x-Math.sin(y)*Math.cos(p),ey+Math.sin(p),W3.z-Math.cos(y)*Math.cos(p));
     if(C3.tp){const bx=Math.sin(y),bz=Math.cos(y);cam.position.set(clamp(W3.x+bx*2.4,-5.5,5.5),2.6,Math.min(W3.z+bz*2.4,6.3));cam.lookAt(W3.x-bx*1.4,1.1+Math.sin(p)*1.6,W3.z-bz*1.4);}
+    if(S.counterView){cam.position.set(0,3.45,5.5);cam.lookAt(0,1.2,.55);me.g.visible=false;}
     const busy=G.pour||G.busy||C3.shakeT>0,holding=G.cup&&G.cup.at==='dock';
     C3.paws.forEach((pw,i)=>{const h=pw.userData.home;pw.position.set(h.x+(holding&&i===1?-.06:0),h.y+(moving?Math.sin(t*10+i*Math.PI)*.02:0)+(holding&&i===1?-.04:0),h.z+(busy?Math.sin(t*12+i*2)*.05:0));});
     const pr=$('#prompt3');
@@ -5300,8 +5312,17 @@ function updLab(t){const on=G.mode==='lab';if(on&&!C3.labRoot)buildLab();if(!C3.
 
 /* ================= v15: third-person view ================= */
 function setView(tp){C3.tp=tp;C3.heldSig=null;$('#viewBtn').textContent=tp?'👁 First person':'👁 Third person';sfx('click');}
-$('#viewBtn').onclick=()=>setView(!C3.tp);
-document.addEventListener('keydown',e=>{if((e.key==='v'||e.key==='V')&&!e.repeat&&document.body.classList.contains('walk')&&!e.target.matches('input,textarea'))setView(!C3.tp);});
+function cycleCafeView(){
+  if(G.busy||G.pour)return;
+  if(S.counterView){S.counterView=false;setView(false);}
+  else if(C3.tp){S.counterView=true;setView(false);}
+  else setView(true);
+  document.body.classList.toggle('counter-camera',!!S.counterView);
+  document.body.classList.toggle('walk',!S.counterView);
+  closePicker();renderBar();save();
+}
+$('#viewBtn').onclick=cycleCafeView;
+document.addEventListener('keydown',e=>{if((e.key==='v'||e.key==='V')&&!e.repeat&&C3.ok&&G.mode!=='decor'&&$('#menu').hidden&&!SH.open&&!document.querySelector('.modal:not([hidden])')&&!e.target.matches('input,textarea'))cycleCafeView();});
 
 /* ================= v15: tutorial ================= */
 const TUT=[
@@ -5459,7 +5480,7 @@ const _updLabV16=updLab;
 updLab=function(t){_updLabV16(t);if(G.mode==='lab'&&C3.labRoot)updLabCreations();};
 
 /* ================= v16: view button text ================= */
-setView=function(tp){C3.tp=tp;C3.heldSig=null;$('#viewBtn').textContent=tp?'First person':'Third person';sfx('click');};
+setView=function(tp){C3.tp=tp;C3.heldSig=null;$('#viewBtn').textContent=S.counterView?'First person':tp?'Fixed counter':'Third person';sfx('click');};
 
 /* ================= v16: tutorial with arrows ================= */
 TUT.splice(0,TUT.length,
@@ -5612,7 +5633,7 @@ function enterShift(){
   const pose=savedShift?.pose;
   if(pose&&C3.walk&&C3.fp){
     C3.walk.x=pose.x;C3.walk.z=pose.z;C3.fp.yaw=pose.yaw;C3.fp.pitch=pose.pitch;
-    if(pose.tp)setView(true);
+    if(pose.tp||S.counterView)setView(!!pose.tp&&!S.counterView);
   }
   if(!S.tutDone&&savedShift?.tutorial>=0&&TUT[savedShift.tutorial]&&G.mode==='cafe'){
     TUTS.i=savedShift.tutorial;TUTS.served0=savedShift.servedAtTutorialStart??S.served;tutShow();
@@ -5675,7 +5696,7 @@ function validBackup(data){
   const furniture=ids(FURN);
   const room=fields({wall:ids(WALLS),floor:ids(FLOORS),night:flag,items:list(fields({t:furniture,x:num,y:num,z:num,r:num,s:num,f:flag,c:ink},['t','x']))},['wall','floor','items']);
   const unlock=v=>drink(v)||topping(v);
-  const rules={level:v=>Number.isSafeInteger(v)&&v>=1,unlocked:list(unlock),fresh:list(unlock),freshIng:list(ing),
+  const rules={market:v=>!!window.MidnightMarket?.valid(v),counterView:flag,level:v=>Number.isSafeInteger(v)&&v>=1,unlocked:list(unlock),fresh:list(unlock),freshIng:list(ing),
     met:list(coat),lastDay:str,grumpDay:str,audio:fields({all:flag,music:flag,rain:flag,sfx:flag}),
     me:maybe(fields({name:str,coat,acc,eye:v=>v===''||ink(v),apron:ink},['name','coat','acc','apron'])),
     goals:list(fields({t:ids(GOALS),p:num,n:num,reward:num,set:list(drink),ready:flag},['t','p','n','reward','set']),3),
@@ -5710,6 +5731,12 @@ $('#backupFile').onchange=async event=>{
   }catch(error){msg.textContent='Could not restore this file. Your current café is still here.';}
 };
 
+$('#marketBtn').disabled=!window.MidnightMarket;
+window.MidnightMarket?.init({
+  state:S,save,sound:sfx,portrait:i=>catSVG(COATS[i],'happy','none'),
+  enter(){initAudio();applyAudio();},
+  exit(){setMoney(S.money);renderHUD();renderMenuScreen();}
+});
 /* ---------- Boot ---------- */
 if(S.me)$('#playBtn').textContent='Continue shift';
 ensureGoals();save();

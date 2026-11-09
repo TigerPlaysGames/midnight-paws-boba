@@ -1,0 +1,76 @@
+#marketDialog{--mk-paper:#fff2dc;--mk-ink:#352a31;--mk-gold:#ffd595;--accent:#a9dfc5;box-sizing:border-box;border:0;border-radius:23px;background:#211d2a;color:var(--mk-paper);width:min(1080px,98vw);height:min(900px,96dvh);max-height:100dvh;max-width:100vw;padding:0;box-shadow:0 25px 100px #090712aa;overflow:hidden;font-family:var(--body,system-ui)}
+#marketDialog[open]{display:flex;flex-direction:column}
+#marketDialog::backdrop{background:#100d1ad9}
+#marketDialog *{box-sizing:border-box}
+#marketDialog button,#marketBtn{font-family:inherit;cursor:pointer}
+#marketDialog button:focus-visible{outline:3px solid #84dfbe;outline-offset:2px}
+#marketDialog button:disabled{cursor:default;opacity:.52}
+.mk-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#302733;border-bottom:1px solid #675343;padding:12px clamp(12px,3vw,34px)}
+.mk-nav button,.mk-detail button,.mk-khead button,.mk-receipt button{border:1px solid #7a6550;border-radius:9px;background:#3d303a;color:#fff0dc;font-weight:750;padding:8px 13px}
+.mk-nav .mk-wallet{color:#ffda94;font-weight:800;font-variant-numeric:tabular-nums}
+.mk-body{overflow:auto;min-height:0;flex:1;padding:clamp(14px,3vw,30px);scrollbar-color:#79667c #282330}
+.mk-heading,.mk-khead,.mk-bottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.mk-heading{margin-bottom:18px}.mk-heading p,.mk-detail small,.mk-khead small,.mk-card small,.mk-receipt>small{color:#e9bc84;font-size:12px;font-weight:750;letter-spacing:.045em}
+.mk-heading p,.mk-heading h1,.mk-detail h1,.mk-khead h2,.mk-upgrades h3{margin:0}
+.mk-body h1,.mk-body h2,.mk-body h3,.mk-card strong{font-family:var(--display,system-ui);line-height:1.22}
+.mk-body h1{font-size:clamp(25px,4vw,41px)}.mk-body h2{font-size:clamp(17px,2vw,23px)}
+.mk-heading span,.mk-detail p,.mk-ticket small,.mk-khead small{color:#e1cebb}
+.mk-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.mk-card{display:flex;flex-direction:column;border:1px solid #6c534d;background:#342b32;border-radius:14px;padding:0;overflow:hidden;text-align:left;color:var(--mk-paper);transition:transform .18s,border-color .18s}
+.mk-card:hover{transform:translateY(-2px);border-color:var(--accent)}
+.mk-photo{background-image:var(--photo);background-size:cover;background-position:center 51%}
+.mk-card .mk-photo{display:block;width:100%;aspect-ratio:1.85}
+.mk-card-info{display:grid;gap:5px;padding:12px 14px}.mk-card strong{font-size:clamp(15px,2vw,21px)}.mk-card-info>span{font-size:13px;color:var(--accent);font-weight:750}
+.mk-hero{min-height:180px;border-radius:14px;display:flex;align-items:flex-end;overflow:hidden;background-position:center 54%}
+.mk-hero>div{padding:36px 20px 15px;width:100%;background:linear-gradient(transparent,#17121bee)}
+.mk-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.mk-detail-grid section,.mk-upgrades article{padding:16px;border:1px solid #594a50;background:#302831;border-radius:12px}
+.mk-detail-grid h2{margin:0 0 10px}.mk-menu{list-style:none;margin:0;padding:0}
+.mk-menu li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1px dashed #605051;padding:5px 0}
+.mk-menu small{font-weight:500;color:#dfcbb9}.mk-detail p,.mk-kitchen{font-size:14px}
+.mk-modes,.mk-khead>div:last-child{display:flex;flex-wrap:wrap;gap:6px}
+.mk-modes button[aria-pressed=true],#marketDialog .mk-primary{background:#f5d49b;color:#392b32;border-color:#f5d49b}
+.mk-upgrades{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.mk-upgrades article{display:flex;flex-direction:column;gap:6px}.mk-upgrades article p{flex:1;margin:0 0 8px}
+.mk-message{min-height:28px;padding:5px 18px;text-align:center;color:#ffe9b8;font-size:13px;background:#302733}
+.mk-khead{margin-bottom:10px}.mk-khead h2{margin-top:3px}.mk-tickets{display:flex;gap:8px;align-items:stretch;margin:8px 0}
+.mk-tickets button{flex:1;min-width:0;text-align:left;border:2px solid transparent;border-bottom:4px solid #bba88c;border-radius:8px;background:#e9dfc9;color:#46343a;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
+.mk-tickets button[aria-pressed=true]{border-color:#82cbb2;background:#fff4df}
+.mk-tickets small,.mk-actions small{font-size:11px;letter-spacing:.04em;font-weight:750}.mk-tickets span{font-size:12px}
+.mk-stage{height:clamp(210px,37dvh,405px);position:relative;overflow:hidden;border:1px solid #6b5449;border-radius:16px;background:#352c35}
+.mk-scenery,.mk-stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}.mk-stage canvas{touch-action:none;cursor:pointer}
+.mk-camera{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);width:max-content;max-width:92%;padding:4px 11px;border-radius:99px;color:#fff1df;background:#261e28d9;text-align:center;pointer-events:none;font-size:11px}
+.mk-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.mk-actions button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:56px;border-radius:9px;border:1px solid #6d5960;background:#3c323d;color:#fff1df;padding:6px}
+.mk-actions .mk-next{background:#f7dcac;color:#362c32;border-color:#ffeac4}.mk-actions small{opacity:.80}
+.mk-bottom{color:#dfd3c7}.mk-score{color:#f7d499;font-variant-numeric:tabular-nums}
+.mk-body progress{width:100%;height:6px;accent-color:#38836e}
+.mk-receipt{max-width:450px;margin:6vh auto;padding:30px;background:#faefd8;color:#392d32;border-radius:4px 4px 12px 12px;box-shadow:0 12px 35px #0f0c1860}
+.mk-receipt>small{color:#7a594a}.mk-receipt dl{display:grid;grid-template-columns:1fr auto;gap:10px;border-block:1px dashed #96816b;padding:14px 0}.mk-receipt dd{margin:0;font-weight:800}
+#marketBtn{border:1px solid #c6a075;border-radius:12px;background:#493039;color:#ffe5b9;width:100%;padding:8px 14px;font-weight:800}
+body.counter-camera .viewbtn{display:block}body.counter-camera .catzone{left:68%;top:20%}body.counter-camera .catzone:not(.away){cursor:pointer}body.counter-camera .bubble{top:6%;right:5%}
+@media(max-width:680px){#marketDialog{height:100dvh;width:100vw;border-radius:0}.mk-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.mk-body{padding:12px}.mk-card-info{padding:9px}.mk-card .mk-photo{aspect-ratio:1.4}.mk-detail-grid,.mk-upgrades{grid-template-columns:1fr}.mk-stage{height:clamp(175px,30dvh,320px)}.mk-tickets{gap:4px}.mk-tickets button{padding:6px}.mk-khead button{font-size:12px}.mk-actions{gap:4px}}
+@media(max-height:500px){.mk-nav{padding-block:5px}.mk-stage{height:165px}.mk-body{padding-top:8px}.mk-hero{min-height:105px}.mk-khead{margin-bottom:3px}.mk-card .mk-photo{aspect-ratio:2.3}}
+@media(prefers-reduced-motion:reduce){.mk-card{transition:none}}
+.mk-stage.mk-painted{height:clamp(225px,45dvh,445px)}
+.mk-painted .mk-scenery{background-size:cover;background-position:center 61%}
+.mk-painted .mk-scenery::after{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#20152299,transparent 45%)}
+.mk-hotspots{position:absolute;inset:0;pointer-events:none;display:flex;align-items:flex-end;justify-content:space-around;padding-bottom:6%}
+.mk-pin{position:relative;pointer-events:auto;min-height:32px;border:1px solid #ffe4acaa;border-radius:99px;padding:5px 12px;color:#fbeace;font-weight:800;background:#30232ce8;box-shadow:0 4px 12px #211d2a77}
+.mk-pin::before{content:'';display:block;position:absolute;bottom:calc(100% + 3px);left:calc(50% - 5px);width:10px;height:10px;border:2px solid #fff1cc;border-radius:50%;background:#57423c}
+.mk-active{background:#ffe2ad;color:#372530}.mk-active::before{background:#ffe2ad}
+.mk-camera:empty,.mk-garnishes:empty{display:none}
+.mk-garnishes{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#eadcc2;color:#372b30;padding:12px;border-radius:10px;margin-bottom:10px}
+.mk-garnishes button{padding:8px 12px;background:#fff3dc;color:#3d2b30;border:1px solid #a89175;border-radius:9px;font-weight:700}
+@media(max-width:680px){.mk-stage.mk-painted{height:clamp(185px,32dvh,315px)}.mk-pin{font-size:11px;padding:5px 9px}}
+.mk-orders>h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:#e6c8a7;margin:0 0 5px}
+.mk-guest{width:54px;height:46px;display:inline-block;overflow:hidden}.mk-guest svg{width:100%;height:100%}
+@media(min-width:750px) and (min-height:570px){
+ .mk-kitchen{display:grid;grid-template-columns:minmax(175px,23%) minmax(0,1fr);gap:12px}
+ .mk-khead{grid-column:1/-1;margin:0}
+ .mk-orders{grid-column:1;grid-row:2/5;border-right:1px solid #5a4851;padding-right:12px}
+ .mk-tickets{flex-direction:column;margin:0}.mk-tickets button{padding:12px;align-items:flex-start}
+ .mk-stage,.mk-actions,.mk-garnishes,.mk-bottom{grid-column:2;margin:0}.mk-stage,.mk-stage.mk-painted{height:clamp(265px,47dvh,480px)}
+ .mk-garnishes:empty{display:none}
+}
+@media(max-width:749px),(max-height:569px){.mk-guest{display:none}.mk-orders>h3{display:none}}
+@media(max-height:475px){.menu .mpanel{gap:4px;margin-bottom:8px;padding-block:7px}.menu #marketBtn{padding-block:5px}}
