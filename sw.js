@@ -1,11 +1,11 @@
 // Bump the version when changing any cached game file.
 const prefix = 'midnight-paws-boba-shell-';
-const cacheName = prefix + '2';
+const cacheName = prefix + '3';
 const home = new URL('index.html', self.registration.scope).href;
 const renderer = new URL('assets/three-r128.min.js', self.registration.scope).href;
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(cacheName).then(cache => cache.addAll([home, renderer])));
+  event.waitUntil(caches.open(cacheName).then(cache => cache.addAll([home, renderer].map(url => new Request(url, {cache: 'reload'})))));
 });
 
 self.addEventListener('activate', event => {
