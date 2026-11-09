@@ -74,3 +74,14 @@ body.counter-camera .viewbtn{display:block}body.counter-camera .catzone{left:68%
 }
 @media(max-width:749px),(max-height:569px){.mk-guest{display:none}.mk-orders>h3{display:none}}
 @media(max-height:475px){.menu .mpanel{gap:4px;margin-bottom:8px;padding-block:7px}.menu #marketBtn{padding-block:5px}}
+.mk-stage:has(.mk-craft:not([hidden])){height:auto;min-height:245px;display:grid;align-items:center}
+.mk-craft:not([hidden]){position:relative;z-index:2;display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);align-items:center;gap:12px;min-height:245px;padding:16px;background:linear-gradient(115deg,#322536fa,#211b29fa);color:#fff0dd}
+.mc-art canvas{display:block;position:static;width:100%;height:auto;aspect-ratio:56/23;background:radial-gradient(ellipse at 48% 70%,#644738,#342839 68%);border-radius:18px;touch-action:none}
+.mc-tools small,.mk-duty{color:#e8c494;font-size:12px}.mc-tools h3{margin:2px 0 4px;font-size:21px}.mc-tools p{margin:4px 0 8px;line-height:1.35;font-size:13px}.mc-state{font-size:13px;color:#a8e4c6}
+.mc-controls{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}.mc-controls button{border:1px solid #a88d76;border-radius:8px;padding:8px 12px;min-height:36px;background:#ffe0ac;color:#382c35;font-weight:750}
+.mc-meter{position:relative;height:9px;margin:10px 0;background:linear-gradient(to right,#64505b var(--lo),#8dc9af var(--lo),#8dc9af var(--hi),#725159 var(--hi));border-radius:8px}
+.mc-meter b{position:absolute;top:-4px;height:17px;width:4px;background:white;box-shadow:0 1px 4px #17111d;border-radius:3px}
+.mk-staff-face{width:48px;height:48px;border-radius:100%;background:#574341}.mk-staff-face svg{width:100%;height:100%}.mk-duty{flex-basis:100%}.mk-duty:empty{display:none}
+@media(max-width:680px){.mk-craft:not([hidden]){grid-template-columns:1fr;padding:10px;gap:4px}.mc-art canvas{max-width:285px;margin:auto;height:auto}.mc-controls button{min-height:38px}.mk-stage:has(.mk-craft:not([hidden])){min-height:230px}}
+
+.mc-controls .mc-next{background:#afe2c6;border-color:#a2c9b8}

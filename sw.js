@@ -1,15 +1,23 @@
 // Bump the version when changing any cached game file.
 const prefix = 'midnight-paws-boba-shell-';
-const cacheName = prefix + '4';
+const cacheName = prefix + '5';
 const home = new URL('index.html', self.registration.scope).href;
 const renderer = new URL('assets/three-r128.min.js', self.registration.scope).href;
 
-const files = [home, renderer, ...['market.css','market.js','market-scene.js',
+const files = [home, renderer, ...['market.css?v=5','market.js?v=5','market-scene.js?v=5','market-cooking.js?v=5','play.html',
   ...['udon','seoul','saigon','bangkok','chennai','malaya'].map(id=>'assets/market/'+id+'.webp')
 ].map(path=>new URL(path,self.registration.scope).href)];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(cacheName).then(cache => cache.addAll(files.map(url => new Request(url, {cache: 'reload'})))));
+  event.waitUntil((async () => {
+    const cache=await caches.open(cacheName);
+    await cache.addAll(files.map(url=>new Request(url,{cache:'reload'})));
+    await self.skipWaiting();
+  })());
+});
+
+self.addEventListener('message', event => {
+  if(event.data==='release')event.ports[0]?.postMessage(cacheName);
 });
 
 self.addEventListener('activate', event => {

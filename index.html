@@ -9,9 +9,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Mochiy+Pop+One&family=Pacifico&display=swap">
 <script src="assets/three-r128.min.js"></script>
-<link rel="stylesheet" href="market.css">
-<script src="market-scene.js"></script>
-<script src="market.js"></script>
+<link rel="stylesheet" href="market.css?v=5">
+<script src="market-scene.js?v=5"></script>
+<script src="market-cooking.js?v=5"></script>
+<script src="market.js?v=5"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -841,7 +842,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
   <div class="mtitle">Midnight Paws<small>boba café</small></div>
   <div class="mpanel">
     <button class="btn startbtn" id="playBtn" type="button">Start</button>
-    <button type="button" id="marketBtn">Midnight Market · Restaurants</button>
+    <button type="button" id="marketBtn">Midnight Market · Cooking &amp; Crew</button>
     <div class="mrow" id="mrowMain">
       <button class="mbtn" id="townBtn" type="button"><b>Map</b><small>Shops</small></button>
       <button class="mbtn" id="designBtn" type="button"><b>Customize Café</b><small>Lv 5</small></button>
@@ -5563,8 +5564,24 @@ cafePad.addEventListener('lostpointercapture',event=>{
   if(event.target.dataset.k)K3[event.target.dataset.k]=false;
 });
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
-  navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{
-    document.getElementById('saveStatus').textContent='Saves in this browser · Ready to play offline';
+  const controllerAtBoot=navigator.serviceWorker.controller;
+  const status=document.getElementById('saveStatus');
+  let updateReady=false;
+  const updateNotice=()=>{
+    if(!controllerAtBoot)return;
+    updateReady=true;
+    const button=document.createElement('button');
+    button.type='button';button.className='mset';button.textContent='Save & load update';
+    button.onclick=()=>{save();if(document.getElementById('saveWarning').hidden)location.reload();};
+    status.replaceChildren(button);
+  };
+  navigator.serviceWorker.addEventListener('controllerchange',updateNotice);
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(async reg=>{
+    const check=()=>reg.update().catch(()=>{});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)check();});
+    setInterval(()=>{if(!document.hidden&&navigator.onLine)check();},300000);
+    await navigator.serviceWorker.ready;
+    if(!updateReady)status.textContent='Cooking & Crew · Saves here · Offline ready';
   }).catch(()=>{});
 }
 /* ---------- Shift checkpoints ---------- */
@@ -5742,6 +5759,7 @@ if(S.me)$('#playBtn').textContent='Continue shift';
 ensureGoals();save();
 renderBar();renderHUD();renderMenus();renderNext();
 renderShelf();renderMe();renderMenuScreen();applyAudio();
+if(location.hash==='#market'&&!$('#marketBtn').disabled)$('#marketBtn').click();
 })();
 </script>
 

@@ -12,11 +12,18 @@ window.MidnightMarket = (() => {
   const modes={cozy:'Cozy service',rush:'Dinner rush',catering:'Catering contract'};
   const descriptions={cozy:'One guest at a time. Take as long as you like.',rush:'Three guests, 65 seconds. Serve before each guest leaves to build a tip streak.',catering:'Fill six ordered meals for a $35 contract bonus. No countdown.'};
   const upgrades=[
-    {key:'heat',name:'Better cookware',effect:'Cuts cooking time by 0.8 seconds per level.',base:26,max:3},
+    {key:'heat',name:'Better cookware',effect:'Cuts cooktop warm-up by 0.4 seconds per level.',base:26,max:3},
     {key:'space',name:'Second cooktop',effect:'Cook two tickets at the same time.',base:48,max:1},
     {key:'service',name:'Table service',effect:'Earn $3 more per meal per level.',base:36,max:3}
   ];
-  const techniques=['Loosen noodles','Stir the sauce','Turn the baguette','Toss the noodles','Flip the dosa','Fluff the rice'];
+  const techniqueNames={udon:'Drain the noodles',seoul:'Stir clockwise',saigon:'Layer the baguette',bangkok:'Toss & catch',chennai:'Flip the dosa',malaya:'Control the steamer'};
+  const crew=[
+    {id:'prep',name:'Pip',role:'Prep cook',stage:'new',next:'prepped',gates:[2,8,16],cost:[22,44,72],seconds:[6,4,2],job:'Preps a waiting ticket'},
+    {id:'runner',name:'Yuzu',role:'Server',stage:'plated',gates:[5,12,22],cost:[40,64,96],seconds:[5,3,1.5],job:'Delivers a plated meal'},
+    {id:'sous',name:'Miso',role:'Sous-chef',stage:'ready',next:'plated',gates:[10,20,32],cost:[60,90,125],seconds:[7,4.5,2.5],job:'Adds the requested garnish'}
+  ];
+  const validLevels=v=>obj(v)&&Object.keys(v).every(k=>crew.some(c=>c.id===k)&&integer(v[k],3));
+  const validWork=v=>obj(v)&&Object.keys(v).every(k=>crew.some(c=>c.id===k)&&obj(v[k])&&integer(v[k].ticket,1e9)&&bounded(v[k].elapsed,10));
   const cats=['Mochi','Sesame','Tofu','Peaches','Miso','Pudding','Clover','Bean'];
   const own=(obj,key)=>Object.prototype.hasOwnProperty.call(obj,key);
   const integer=(n,max)=>Number.isInteger(n)&&n>=0&&n<=max;
@@ -24,8 +31,8 @@ window.MidnightMarket = (() => {
   const obj=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
   const lookup=id=>venues.find(v=>v.id===id);
   const validTicket=t=>obj(t)&&integer(t.id,1e9)&&integer(t.recipe,2)&&integer(t.cat,7)&&
-    ['new','prepped','cooking','ready','plated'].includes(t.stage)&&bounded(t.cook,10)&&bounded(t.patience,45)&&typeof t.technique==='boolean';
-  const validRun=r=>obj(r)&&own(modes,r.mode)&&integer(r.serial,1e9)&&integer(r.selected,1e9)&&
+    ['new','prepped','cooking','hands','ready','plated'].includes(t.stage)&&bounded(t.cook,10)&&bounded(t.patience,45)&&typeof t.technique==='boolean'&&(t.craft===undefined||window.MarketCooking.valid(t.craft));
+  const validRun=r=>obj(r)&&(r.work===undefined||validWork(r.work))&&own(modes,r.mode)&&integer(r.serial,1e9)&&integer(r.selected,1e9)&&
     [r.served,r.tips,r.streak,r.missed].every(n=>integer(n,1e9))&&bounded(r.time,65)&&
     Array.isArray(r.tickets)&&r.tickets.length>=1&&r.tickets.length<=3&&r.tickets.every(validTicket)&&
     r.tickets.some(t=>t.id===r.selected)&&new Set(r.tickets.map(t=>t.id)).size===r.tickets.length;
@@ -33,11 +40,12 @@ window.MidnightMarket = (() => {
     return obj(data)&&data.version===1&&['fixed','first'].includes(data.view)&&
       obj(data.restaurants)&&own(data.restaurants,'udon')&&Object.entries(data.restaurants).every(([id,r])=>
         lookup(id)&&obj(r)&&integer(r.sold,1e9)&&integer(r.best,1e9)&&integer(r.contracts,1e9)&&integer(r.stamps,7)&&
-        upgrades.every(u=>integer(r[u.key],u.max))&&(r.run===null||validRun(r.run)));
+        (r.crew===undefined||validLevels(r.crew))&&upgrades.every(u=>integer(r[u.key],u.max))&&(r.run===null||validRun(r.run)));
   }
   function restaurant(){return {sold:0,best:0,contracts:0,heat:0,space:0,service:0,stamps:0,run:null};}
   function init(api){
     const dlg=document.querySelector('#marketDialog'),body=dlg.querySelector('.mk-body'),wallet=dlg.querySelector('.mk-wallet');
+    let stationTask=null,taskTicket=null;
     let chooseFinish=false,webglFailed=false;
     let page='list',venue=venues[0],mode='cozy',last=0,clock=0,timer=0,scene=null,summary=null;
     const data=()=>api.state.market;
@@ -51,7 +59,7 @@ window.MidnightMarket = (() => {
     const art=v=>"--photo:url('assets/market/"+v.id+".webp');--accent:"+v.color;
     const button=(action,text,extra='')=>`<button type="button" data-mk="${action}" ${extra}>${text}</button>`;
     function stop(){
-      clearInterval(timer);timer=0;
+      closeTask();clearInterval(timer);timer=0;
       if(scene){scene.dispose();scene=null;}
     }
     function route(next){
@@ -70,6 +78,14 @@ window.MidnightMarket = (() => {
           <span class="mk-photo"></span><span class="mk-card-info"><small>${v.country} · ${v.specialty}</small><strong>${v.name}</strong>
           <span>${shops[v.id]?(shops[v.id].run?'Resume shift →':'Enter restaurant →'):'Open for $'+v.price}</span></span></button>`).join('')}</div>`;
     }
+    function crewBoard(r){
+      return '<h2>Kitchen crew</h2><div class="mk-upgrades">'+crew.map((c,i)=>{
+        const lv=r.crew?.[c.id]||0,max=lv===3;
+        const gate=c.gates[lv],price=c.cost[lv];
+        const label=max?'Fully trained':r.sold<gate?'Serve '+(gate-r.sold)+' more meals':(lv?'Train':'Hire')+' · $'+price;
+        return `<article><div class="mk-staff-face">${api.portrait(i+2)}</div><small>${lv?'Level '+lv+' / 3':'Available after '+c.gates[0]+' meals'}</small><h3>${c.name} · ${c.role}</h3><p>${c.job} in ${c.seconds[Math.max(lv-1,0)]}s.${lv&&!max?' Training reduces that to '+c.seconds[lv]+'s.':''}</p>${button('hire',label,`data-id="${c.id}" ${max||r.sold<gate||api.state.money<price?'disabled':''}`)}</article>`;
+      }).join('')+'</div>';
+    }
     function dashboard(){
       const r=shop();
       const dishes=venue.menu.map((n,i)=>`<li><b>${r&&(r.stamps&(1<<i))?'✓ ':''}${n}</b><small>${venue.finishings[i]}</small></li>`).join('');
@@ -80,7 +96,7 @@ window.MidnightMarket = (() => {
         r.run?`<h2>${modes[r.run.mode]}</h2><p>Shift paused · ${r.run.served} served · $${r.run.tips} earned</p>${button('resume','Resume shift')}`:
         `<h2>Choose a shift</h2><div class="mk-modes">${Object.entries(modes).map(([id,name])=>button('mode',name,`data-id="${id}" aria-pressed="${mode===id}"`)).join('')}</div><p>${descriptions[mode]}</p>${button('start','Start '+modes[mode].toLowerCase(),'class="mk-primary"')}`}</section></div>
         ${r?`<h2>Kitchen upgrades</h2><div class="mk-upgrades">${upgrades.map(u=>{const level=r[u.key],cost=u.base*(level+1);
-          return `<article><small>Level ${level} / ${u.max}</small><h3>${u.name}</h3><p>${u.effect}</p>${button('upgrade',level===u.max?'Fully upgraded':'Upgrade · $'+cost,`data-id="${u.key}" ${level===u.max||api.state.money<cost?'disabled':''}`)}</article>`;}).join('')}</div>`:''}</div>`;
+          return `<article><small>Level ${level} / ${u.max}</small><h3>${u.name}</h3><p>${u.effect}</p>${button('upgrade',level===u.max?'Fully upgraded':'Upgrade · $'+cost,`data-id="${u.key}" ${level===u.max||api.state.money<cost?'disabled':''}`)}</article>`;}).join('')}</div>${crewBoard(r)}`:''}</div>`;
     }
     function newTicket(r){
       return {id:++r.serial,recipe:Math.floor(Math.random()*3),cat:Math.floor(Math.random()*cats.length),stage:'new',cook:0,patience:42,technique:false};
@@ -90,18 +106,18 @@ window.MidnightMarket = (() => {
       for(let i=0;i<(mode==='rush'?3:mode==='catering'?2:1);i++)r.tickets.push(newTicket(r));
       shop().run=r;save();route('kitchen');
     }
-    function nextStep(t){return {new:0,prepped:1,cooking:1,ready:1,plated:2}[t.stage];}
+    function nextStep(t){return {new:0,prepped:1,cooking:1,hands:1,ready:1,plated:2}[t.stage];}
     function caption(t,st){
       if(st===0)return t.stage==='new'?venue.prep:'Ingredients ready';
-      if(st===1)return t.stage==='prepped'?venue.heat:t.stage==='ready'?venue.finish:t.stage==='cooking'?(t.technique?'Cooking…':techniques[venues.indexOf(venue)]):venue.pot;
+      if(st===1)return t.stage==='prepped'?venue.heat:t.stage==='ready'?venue.finish:t.stage==='hands'?techniqueNames[venue.id]:t.stage==='cooking'?'Heating…':venue.pot;
       return t.stage==='plated'?'Serve '+cats[t.cat]:'Serving pass';
     }
     function kitchen(){
       const st=data().view;
       body.innerHTML=`<div class="mk-kitchen" style="${art(venue)}"><div class="mk-khead"><div><small>${venue.country} · ${modes[run().mode]}</small><h2>${venue.name}</h2></div>
         <div>${button('view',st==='first'?'Switch to fixed counter':'Switch to first person')}${button('finish','End shift')}</div></div>
-        <aside class="mk-orders"><h3>Order rail</h3><div class="mk-tickets" aria-label="Customer tickets"></div></aside><div class="mk-stage"><div class="mk-scenery mk-photo"></div><canvas aria-label="Interactive kitchen. Use the station buttons below or click the equipment."></canvas><div class="mk-hotspots"></div><div class="mk-camera"></div></div>
-        <div class="mk-actions" aria-label="Kitchen stations"></div><div class="mk-garnishes"></div><div class="mk-bottom"><span class="mk-instruction"></span><strong class="mk-score"></strong></div></div>`;
+        <aside class="mk-orders"><h3>Order rail</h3><div class="mk-tickets" aria-label="Customer tickets"></div></aside><div class="mk-stage"><div class="mk-scenery mk-photo"></div><canvas aria-label="Interactive kitchen. Use the station buttons below or click the equipment."></canvas><div class="mk-hotspots"></div><div class="mk-camera"></div><section class="mk-craft" aria-label="Cooking station" hidden></section></div>
+        <div class="mk-actions" aria-label="Kitchen stations"></div><div class="mk-garnishes"></div><div class="mk-bottom"><span class="mk-instruction"></span><strong class="mk-score"></strong><div class="mk-duty"></div></div></div>`;
       const canvas=body.querySelector('canvas');
       if(st==='first'&&!webglFailed){
         scene=window.makeMarketScene?.(canvas,venue,venues.indexOf(venue),st,act);
@@ -125,19 +141,39 @@ window.MidnightMarket = (() => {
       body.querySelector('.mk-actions').innerHTML=['Prep board',venue.pot,'Serving pass'].map((name,i)=>button('station',
         `<small>${name}</small><strong>${caption(t,i)}</strong>${i===1&&t.stage==='cooking'?'<progress class="mk-cooking" aria-label="Cooking progress"></progress>':''}`,
         `data-id="${i}" ${nextStep(t)===i&&t.stage!=='cooking'?'class="mk-next"':''}`)).join('');
-      const step={new:'Prep ingredients for '+venue.menu[t.recipe]+'.',prepped:'Move the ingredients to the '+venue.pot.toLowerCase()+'.',cooking:t.technique?'Technique tip secured. Finish when ready.':'Tap the cooktop halfway for a $2 technique tip, or prep another ticket.',ready:venue.finish+' with '+venue.finishings[t.recipe].toLowerCase()+'.',plated:'Hand the finished meal to '+cats[t.cat]+'.'};
+      const step={new:'Prep ingredients for '+venue.menu[t.recipe]+'.',prepped:'Move the ingredients to the '+venue.pot.toLowerCase()+'.',cooking:'Heating the cooktop. You can prep another ticket.',hands:techniqueNames[venue.id]+' at the highlighted station.',ready:venue.finish+' with '+venue.finishings[t.recipe].toLowerCase()+'.',plated:'Hand the finished meal to '+cats[t.cat]+'.'};
       body.querySelector('.mk-instruction').textContent=step[t.stage];
       body.querySelectorAll('.mk-pin').forEach((pin,i)=>pin.classList.toggle('mk-active',i===nextStep(t)));
       body.querySelector('.mk-garnishes').innerHTML=chooseFinish&&t.stage==='ready'?
         `<strong>Finish ${cats[t.cat]}'s dish</strong>${venue.finishings.map((name,i)=>button('garnish',name,`data-id="${i}"`)).join('')}`:'';
-      scene?.update(t,r.tickets);meters();
+      scene?.update(t,r.tickets);
+      syncTask(t);meters();
+    }
+    function closeTask(){
+      stationTask?.destroy();stationTask=null;taskTicket=null;
+    }
+    function syncTask(t){
+      if(taskTicket===t&&t.stage==='hands')return;
+      closeTask();
+      if(t.stage!=='hands')return;
+      taskTicket=t;
+      stationTask=window.MarketCooking.mount(body.querySelector('.mk-craft'),venue,t,notice,save,()=>{
+        t.stage='ready';t.technique=true;chooseFinish=true;closeTask();save();sound('full');
+        notice('Cooked! Choose the finish on the ticket.');drawOrders();
+      });
     }
     function meters(){
       const r=run();for(const el of body.querySelectorAll('[data-pat]'))el.value=r.tickets.find(o=>o.id===+el.dataset.pat).patience;
-      const meter=body.querySelector('.mk-cooking');if(meter){meter.max=duration();meter.value=meter.max-ticket().cook;}
+      const meter=body.querySelector('.mk-cooking');if(meter){meter.max=duration();meter.value=Math.max(0,meter.max-ticket().cook);}
+      const duty=body.querySelector('.mk-duty');
+      const roster=crew.filter(c=>shop().crew?.[c.id]);
+      duty.textContent=roster.map(c=>{
+        const work=r.work?.[c.id];
+        return c.name+' · '+(work?'Ticket '+work.ticket+' ('+Math.max(1,Math.ceil(c.seconds[shop().crew[c.id]-1]-work.elapsed))+'s)':c.role+' ready');
+      }).join('   /   ');
       body.querySelector('.mk-score').textContent=(r.mode==='rush'?Math.ceil(r.time)+'s · ':r.mode==='catering'?r.served+'/6 · ':'')+'$'+r.tips+' earned';
     }
-    function duration(){return 4.8-shop().heat*.8;}
+    function duration(){return 2.2-shop().heat*.4;}
     function tick(){
       const now=performance.now(),dt=Math.min(1,(now-last)/1000);last=now;
       if(document.hidden||!dlg.open||page!=='kitchen')return;
@@ -145,43 +181,63 @@ window.MidnightMarket = (() => {
       if(r.mode==='rush'&&(r.time=Math.max(0,r.time-dt))===0){end();return;}
       for(let i=0;i<r.tickets.length;i++){
         const t=r.tickets[i];
-        if(t.stage==='cooking'&&(t.cook=Math.max(0,t.cook-dt))===0){t.stage='ready';dirty=true;sound('full');}
+        if(t.stage==='cooking'&&(t.cook=Math.max(0,t.cook-dt))===0){t.stage=t.technique?'ready':'hands';dirty=true;sound('full');}
         if(r.mode==='rush'&&(t.patience=Math.max(0,t.patience-dt))===0){
           const next=newTicket(r);if(r.selected===t.id)r.selected=next.id;
           r.tickets[i]=next;r.missed++;r.streak=0;dirty=true;notice(cats[t.cat]+' left. A new guest is waiting.');
         }
       }
+      stationTask?.tick(dt);
+      if(stepCrew(dt))dirty=true;
+      if(page!=='kitchen')return;
       if(dirty)drawOrders();else meters();
       clock+=dt;if(dirty||clock>=1){save();clock=0;}
     }
     function act(st){
       if(page!=='kitchen')return;
       const r=run(),t=ticket();scene?.focus(st);
-      if(st===1&&t.stage==='cooking'&&!t.technique){
-        if(t.cook>duration()*.64){notice('Give it a moment. Tap the cooktop when the timer is halfway for a $2 technique tip.');return;}
-        t.technique=true;t.cook=Math.max(.05,t.cook-.6);sound('full');notice('Good timing. +$2 when served.');save();drawOrders();return;
-      }
+      if(t.stage==='hands'){notice('Use the cooking station above.');return;}
       if(st!==nextStep(t)||t.stage==='cooking'){notice(t.stage==='cooking'?'Let this dish finish cooking.':'Next: '+caption(t,nextStep(t)));return;}
       if(t.stage==='new'){t.stage='prepped';sound('place');}
       else if(t.stage==='prepped'){
-        if(r.tickets.filter(o=>['cooking','ready'].includes(o.stage)).length>=1+shop().space){notice('Cooktop full. Finish the other ticket first.');return;}
+        if(r.tickets.filter(o=>['cooking','hands','ready'].includes(o.stage)).length>=1+shop().space){notice('Cooktop full. Finish the other ticket first.');return;}
         t.stage='cooking';t.cook=duration();sound('place');
       }else if(t.stage==='ready'){chooseFinish=true;notice('Choose the finishing ingredient on the ticket.');drawOrders();return;}
-      else{
-        r.streak++;r.served++;shop().sold++;
-        const pay=10+(t.technique?2:0)+venues.indexOf(venue)*2+t.recipe+shop().service*3+(r.mode==='rush'?Math.min(r.streak,5)*2:0);
-        const old=shop().stamps;shop().stamps|=(1<<t.recipe);
-        const bonus=shop().stamps===7&&old!==7?20:0;
-        api.state.money+=pay+bonus;r.tips+=pay+bonus;sound('coin');
-        notice(cats[t.cat]+' paid $'+pay+' for '+venue.menu[t.recipe]+'.'+(bonus?' Menu mastered! +$20.':''));
-        if(r.mode==='catering'&&r.served===6){shop().contracts++;api.state.money+=35;r.tips+=35;end(true);return;}
-        const i=r.tickets.indexOf(t);
-        if(r.mode==='catering'&&r.served+r.tickets.length>6)r.tickets.splice(i,1);
-        else r.tickets[i]=newTicket(r);
-        r.selected=(r.tickets.find(o=>o.stage!=='new')||r.tickets[0]).id;
-        save();drawOrders();return;
-      }
+      else{deliver(t);if(page==='kitchen'){save();drawOrders();}return;}
       notice('');save();drawOrders();
+    }
+    function deliver(t){
+      if(t.stage!=='plated')return;
+      const r=run();
+      r.streak++;r.served++;shop().sold++;
+      const pay=10+(t.technique?2:0)+venues.indexOf(venue)*2+t.recipe+shop().service*3+(r.mode==='rush'?Math.min(r.streak,5)*2:0);
+      const old=shop().stamps;shop().stamps|=(1<<t.recipe);
+      const bonus=shop().stamps===7&&old!==7?20:0;
+      api.state.money+=pay+bonus;r.tips+=pay+bonus;sound('coin');
+      notice(cats[t.cat]+' paid $'+pay+' for '+venue.menu[t.recipe]+'.'+(bonus?' Menu mastered! +$20.':''));
+      if(r.mode==='catering'&&r.served===6){shop().contracts++;api.state.money+=35;r.tips+=35;end(true);return;}
+      const i=r.tickets.indexOf(t);
+      if(r.mode==='catering'&&r.served+r.tickets.length>6)r.tickets.splice(i,1);
+      else r.tickets[i]=newTicket(r);
+      if(r.selected===t.id)r.selected=(r.tickets.find(o=>o.stage!=='new')||r.tickets[0]).id;
+    }
+    function stepCrew(dt){
+      const r=run(),levels=shop().crew;
+      if(!levels)return false;
+      const work=r.work||(r.work={});let changed=false;
+      for(const c of crew){
+        const level=levels[c.id];if(!level)continue;
+        const target=r.tickets.find(t=>t.stage===c.stage);
+        if(!target){delete work[c.id];continue;}
+        let job=work[c.id];
+        if(job?.ticket!==target.id)job=work[c.id]={ticket:target.id,elapsed:0};
+        job.elapsed+=dt;
+        if(job.elapsed<c.seconds[level-1])continue;
+        delete work[c.id];changed=true;
+        if(c.id==='runner'){deliver(target);if(page!=='kitchen')break;}
+        else{target.stage=c.next;notice(c.name+' '+(c.id==='prep'?'prepped':'plated')+' ticket '+target.id+'.');}
+      }
+      return changed;
     }
     function end(bonus=false){
       const r=run();if(r.mode==='rush')shop().best=Math.max(shop().best,r.served);
@@ -207,6 +263,13 @@ window.MidnightMarket = (() => {
         case 'buy':if(!shop()&&api.state.money>=venue.price){api.state.money-=venue.price;data().restaurants[venue.id]=restaurant();sound('buy');save();dashboard();}break;
         case 'upgrade':{const u=upgrades.find(x=>x.key===id),r=shop(),cost=u.base*(r[id]+1);
           if(r[id]<u.max&&api.state.money>=cost){api.state.money-=cost;r[id]++;save();sound('buy');dashboard();}break;}
+        case 'hire':{
+          const r=shop(),c=crew.find(c=>c.id===id);if(!r||!c)break;
+          const level=r.crew?.[id]||0;
+          if(level>=3||r.sold<c.gates[level]||api.state.money<c.cost[level])break;
+          api.state.money-=c.cost[level];(r.crew||(r.crew={}))[id]=level+1;
+          save();sound('buy');dashboard();notice(c.name+(level?' trained to level '+(level+1):' joined the kitchen')+'.');break;
+        }
         case 'mode':mode=id;dashboard();break;
         case 'start':if(!run())start();break;
         case 'resume':route('kitchen');break;
