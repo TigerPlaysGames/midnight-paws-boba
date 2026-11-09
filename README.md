@@ -6,11 +6,15 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=7). Walk up to a cat and ask for their order. Pick up one cup, carry it to the marked brewer, wait as it fills, add the requested topping, seal the cup, and hand it to the same cat. At level 3, some guests also order a dessert from the bakery. **Pause** freezes guests and machines.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=8). Start behind the counter in the original café’s first-person 3D style. One cat arrives first. Walk to the register and ask for their order. The next cats line up in arrival order while guests with written tickets wait at their pickup spots.
+
+Grab a cup, wait at the brewer, add the requested topping, press the lid and deliver the drink. Prepare any snacks or desserts on the ticket, carry each item separately, then clean the pickup spot for the next guest. Serve three complete orders to finish the first shift. Later shifts have larger quotas. **Pause** freezes guests, machines and staff.
+
+Use the **Crew** board to spend tips on an order taker, cleaner, barista, cook or server. Each worker handles that job during service. You can train workers and fill the other roles yourself.
 
 Use **WASD** to walk, drag or press the left and right arrows to turn, and press **E** to interact within reach. On touchscreens, move with the stick, drag the room to look, and use the nearby action button. Select a ticket to track its guest. Park a cup on the shelf to free your hand.
 
-Your tips, XP, unlocks, tickets and unfinished drinks save automatically in this browser. Open the game again on the same browser and device to continue. For a different device, use **Menu → Save backups → Download save**, then **Restore from file** on the other device. Clearing site data or ending a private browsing session can erase that browser’s progress.
+Your shift, crew and training save automatically along with your tips, XP, unlocks, tickets and unfinished drinks. Open the game again on the same browser and device to continue. For a different device, use **Menu → Save backups → Download save**, then **Restore from file** on the other device. Clearing site data or ending a private browsing session can erase that browser’s progress.
 
 After the menu says **Offline ready**, you can reopen the link without internet. The game bundles Three.js r128 and uses system fonts if Google Fonts are unavailable.
 
@@ -50,13 +54,13 @@ The painted counter works with mouse, keyboard and touch. **Switch to first pers
 
 ## Features
 
-- **Orders:** up to three cats wait at the counter. Ask for each ticket, prepare and carry one item at a time, and return it to the matching guest.
+- **Orders:** greet the front cat, serve each ticket at its pickup spot and clean up after the guest. Only completed orders count toward the shift quota.
 - **First-person 3D counter:** stations run left to right: cups, ice, tea, milk, syrup, powder, toppings, shaker, serve. Dispenser handles press, pumps push, scoops move and the shaker shakes.
 - **Procedural sounds (Web Audio):** ice clicking in a plastic cup, a tea splish, a milk pour that rises in pitch, a syrup drizzle, a powder puff, sticky boba, ice rattling in the shaker, and a sound on every button.
 - **Music:** rotating lo-fi tracks in the café and rotating jazz tunes in the shops. Day and night switch every 5 minutes, and sound settings toggle all sound, music, rain and SFX separately.
 - **Progression:** tips, XP, levels, a combo multiplier, collectable goals (finished goals wait for you to press Collect), a daily gift, a cat album with rare cats, and Rebirth (Lv 10, +25% tips on perfect drinks per rebirth).
 - **Unlocks:**
-  - Lv 3: Dessert tray
+  - Lv 3: Desserts join the hot snacks available in café shifts
   - Lv 5: Customize Café, Paws & Co. Home and Whisker Wear
   - Lv 7: Drink Lab
   - Lv 10: Rebirth

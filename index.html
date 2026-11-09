@@ -13,9 +13,10 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=7">
-<script src="cafe-room.js?v=7"></script>
-<script src="cafe-service.js?v=7"></script>
+<link rel="stylesheet" href="cafe-service.css?v=8">
+<link rel="stylesheet" href="original-room.css?v=8">
+<script src="cafe-room.js?v=8"></script>
+<script src="cafe-service.js?v=8"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -4094,9 +4095,9 @@ function loopShop(now){
 
 /* ================= v10: guidebook ================= */
 const GUIDE=[
- ['Café counter','<ol class="gsteps"><li><b>Walk up to a cat</b> and ask for their order. The ticket appears on the rail.</li><li><b>Take one cup from the shelf.</b> Walk to the marked brewer and wait as it fills the cup in 3.5 seconds.</li><li>Visit the boba bowl for the requested topping, use the <b>lid press</b>, then hand the cup to the cat who ordered it.</li><li>Tap <b>Pause</b> whenever you need a break. Your orders and tips save in this browser.</li></ol>'],
- ['Desserts','<p class="gp">The dessert tray opens at <b>level 3</b>. A ticket can ask for strawberry mochi, custard taiyaki, or a matcha roll alongside the drink.</p><p class="gp">Carry the drink to the cat, then walk to the bakery with empty hands. Stay there to prepare the dessert and return it to the same guest.</p>'],
- ['3D controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
+ ['Café shifts','<p class="gp">Use <b>WASD</b> to walk, drag to look and press <b>E</b> to interact. On a phone, use the stick to walk and tap the action button.</p><ol class="gsteps"><li>Walk to the register and ask the <b>first cat in line</b> for their order. Follow their ticket to the pickup spot.</li><li>Take a cup, wait at the brewer, add any requested topping and press the lid. Carry one item at a time. If the ticket includes food, prepare it at the food station.</li><li>Hand each item to the cat who ordered it. Clean their pickup spot to make room for another guest.</li><li>Serve <b>three cats</b> to finish your first shift. Open the next shift when you are ready. Pause freezes service.</li></ol>'],
+ ['Café workers','<p class="gp">Spend tips on a worker for the part of the shift where you want help. The cashier writes tickets, the barista makes drinks, the cook prepares food, the server delivers finished items, and the cleaner clears used spots.</p><p class="gp">You can handle any unstaffed job yourself. Your hires and training carry over to later shifts.</p>'],
+ ['Explore controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
   <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
  ['Shops',`<p class="gp">Press <span class="gk">Shop</span> and pick a store. You’ll arrive on the sidewalk, so walk in through the door.</p>
   <ul class="glist"><li><b>Boba Supply Co.</b> sells new drinks and toppings. Cats start ordering whatever you unlock.</li><li><b>Paws &amp; Co. Home</b> sells furniture, tables and plants. It opens at level 3.</li></ul><p class="gp">Walk close to anything and a <b>Buy</b> button appears.</p>`],
@@ -5374,11 +5375,11 @@ const REBIRTH_LV=10;
 function openRebirth(){const n=S.rebirths||0;
   $('#rbBody').innerHTML=S.level<REBIRTH_LV?`<p class="gp">Reach <b>level ${REBIRTH_LV}</b> to rebirth. You’re level ${S.level} right now. Keep serving!</p>`:
    `<p class="gp">Start fresh from level 1 and earn a permanent bonus.</p>
-   <div class="rbcols"><div><h4>You keep</h4><ul class="glist"><li>Your cat &amp; outfits</li><li>Café furniture &amp; decor</li><li>Cat album &amp; creations</li></ul></div>
-   <div><h4>Resets</h4><ul class="glist"><li>Level &amp; XP</li><li>Tips (back to $0)</li><li>Unlocked drinks &amp; toppings</li></ul></div></div>
+   <div class="rbcols"><div><h4>You keep</h4><ul class="glist"><li>Your cat &amp; outfits</li><li>Café furniture &amp; decor</li><li>Cat album &amp; creations</li><li>Café crew, training &amp; career totals</li></ul></div>
+   <div><h4>Resets</h4><ul class="glist"><li>Level &amp; XP</li><li>Tips (back to $0)</li><li>Unlocked drinks &amp; toppings</li><li>Current shift &amp; unfinished orders</li></ul></div></div>
    <div class="rbbonus">✦ Rebirth ${n+1}: <b>+${(n+1)*25}% tips</b> on perfect drinks, forever</div>`;
   $('#rbGo').hidden=S.level<REBIRTH_LV;$('#rebirth').hidden=false;}
-function doRebirth(){if(S.cafeService){Object.assign(S.cafeService,{selected:null,orders:[],arrival:0,paused:false});if(S.cafeService.version===2){S.cafeService.hand=null;S.cafeService.job=null;}}
+function doRebirth(){window.BobaService?.resetForRebirth();
   S.rebirths=(S.rebirths||0)+1;S.money=0;S.level=1;S.xp=0;S.combo=0;S.unlocked=['classic','jasminemt','bsmilk','pearls'];S.fresh=[];S.freshIng=[];save();
   $('#rebirth').hidden=true;sfx('rare');confetti(90);banner(`REBIRTH ✦ ${S.rebirths}`,`+${S.rebirths*25}% tips on perfect drinks forever`,'lvl');
   try{renderHUD();renderMenus();renderBar();}catch(e){}renderMenuScreen();}
@@ -5750,10 +5751,24 @@ window.MidnightMarket?.init({
   exit(){setMoney(S.money);renderHUD();renderMenuScreen();}
 });
 /* ---------- Boot ---------- */
+// The walk-in service uses the original café's model factories and the player's décor.
+window.BobaOriginalArt={
+  cat(id,apron){const coat=COATS.find(c=>c.id===id)||COATS[0];return buildCat3(coatOpts(coat,'none',apron));},
+  sleeper(){return buildSleeper3(COATS[3]).g;},
+  item:buildItem3,
+  floor(){return floorTex(S.cafe3d?.floor||'oak');},
+  wall(){return WALLS[S.cafe3d?.wall||'cream']||'#efe3cf';},
+  furnishings(){return (S.cafe3d||defaultCafe3()).items;},
+  player(){return {fur:(COATS.find(c=>c.id===S.me?.coat)||COATS[0]).fur,apron:S.me?.apron||'#9de6c6'};},
+  cup(serving){
+    const recipe=DRINKS.find(d=>d.id===serving?.flavor),order=recipe?recipe.ings.slice():[];
+    return cupMesh3({order,amt:Object.fromEntries(order.map(id=>[id,1])),topping:serving?.top||null,shaken:serving?.stage==='ready'});
+  }
+};
 if(window.BobaService){
   const explore=$('#playBtn').onclick;
   $('#exploreCafe').onclick=explore;
-  $('#playBtn').textContent=S.cafeService?'Continue café':'Open café';
+  $('#playBtn').textContent=S.cafeService?'Continue café shifts':'Start my first shift';
   $('#playBtn').onclick=window.BobaService.open;
   window.BobaService.init({
     state:S,drinks:DRINKS,ingredients:ING,tops:TOPS,coats:COATS,names:NAMES,save,
@@ -5772,7 +5787,7 @@ if(window.BobaService){
       setMoney(S.money);sfx('perfect',S.combo);
       return pay;
     },
-    exit(){history.replaceState(null,'',location.pathname+location.search);setMoney(S.money);renderHUD();renderMenuScreen();$('#playBtn').textContent='Continue café';}
+    exit(){history.replaceState(null,'',location.pathname+location.search);setMoney(S.money);renderHUD();renderMenuScreen();$('#playBtn').textContent='Continue café shifts';}
   });
 }else{$('#exploreCafe').hidden=true;}
 ensureGoals();save();

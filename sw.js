@@ -1,10 +1,10 @@
 // Bump the version when changing any cached game file.
 const prefix = 'midnight-paws-boba-shell-';
-const cacheName = prefix + '7';
+const cacheName = prefix + '8';
 const home = new URL('index.html', self.registration.scope).href;
 const renderer = new URL('assets/three-r128.min.js', self.registration.scope).href;
 
-const files = [home, renderer, ...['market.css?v=5','market.js?v=5','market-scene.js?v=5','market-cooking.js?v=5','cafe-service.css?v=7','cafe-room.js?v=7','cafe-service.js?v=7','play.html',
+const files = [home, renderer, ...['market.css?v=5','market.js?v=5','market-scene.js?v=5','market-cooking.js?v=5','cafe-service.css?v=8','original-room.css?v=8','cafe-room.js?v=8','cafe-service.js?v=8','play.html',
   ...['udon','seoul','saigon','bangkok','chennai','malaya'].map(id=>'assets/market/'+id+'.webp')
 ].map(path=>new URL(path,self.registration.scope).href)];
 
