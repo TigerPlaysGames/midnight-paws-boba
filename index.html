@@ -8,7 +8,7 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Mochiy+Pop+One&family=Pacifico&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="assets/three-r128.min.js"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -644,6 +644,16 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
 .shophelp{top:auto;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:auto;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px;padding:9px 10px 9px 16px;border-radius:999px;font-size:13.5px}
 .shophelp .shx{border:0;background:rgba(0,0,0,.07);border-radius:50%;width:24px;height:24px;font-size:15px;line-height:1;color:var(--ink)}
 </style>
+<style>
+#saveStatus{color:#e7d9ec;font:600 12px var(--body);text-align:center}
+#saveWarning{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;padding:8px 16px;background:#fff0cb;color:#392740;border-radius:0 0 12px 12px;text-align:center}
+#cafePad{display:none;z-index:6;pointer-events:none}
+#cafePad button{pointer-events:auto}
+@media(any-pointer:coarse){
+  body.walk:not(.picking) #cafePad,body.dwalk #cafePad{display:grid}
+  .walkhint{display:none!important}
+}
+</style>
 </head>
 <body>
 
@@ -723,6 +733,7 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
     <button class="btn takebtn" id="takeBtn" type="button" hidden>Take order</button>
     <button class="btn ghost forgot" id="forgotBtn" type="button" hidden>Forgot the order · $5</button>
     <button class="prompt3" id="prompt3" type="button" hidden></button>
+    <div class="pad" id="cafePad"><button type="button" data-k="w" aria-label="Forward">▲</button><button type="button" data-k="a" aria-label="Left">◀</button><button type="button" data-k="s" aria-label="Back">▼</button><button type="button" data-k="d" aria-label="Right">▶</button></div>
     <div class="walkhint"><kbd>WASD</kbd> move · drag to look · <kbd>E</kbd> use · <kbd>1–9</kbd> pour · <kbd>Space</kbd> shake · <kbd>V</kbd> view</div>
     <div class="xhair" aria-hidden="true"></div>
     <div class="itemmenu" id="itemMenu" hidden><button type="button" data-im="rot">⟳ Rotate</button><button type="button" data-im="move">✥ Move</button><button type="button" class="im-del" data-im="trash">Trash</button><button type="button" data-im="close" aria-label="Done">✕</button></div>
@@ -813,6 +824,7 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
   <form id="nameForm"><input class="namein" id="drinkName" maxlength="28" autocomplete="off" aria-label="Drink name">
   <div class="cbtns"><button class="btn" type="submit">Save to shelf</button><button class="btn ghost" id="nameToss" type="button">Toss it</button></div></form>
 </div></div>
+<div id="saveWarning" role="alert" hidden></div>
 <div class="menu" id="menu">
   <canvas id="menu3d" aria-label="A 3D café on a rainy night. Drag to look around."></canvas>
   <div class="mtitle">Midnight Paws<small>boba café</small></div>
@@ -826,6 +838,7 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
     </div>
     <div class="msettings"><button class="mset" id="guideBtn" type="button"><b>How to play</b></button><button class="mset" id="menuSound" type="button"><b>Sound</b></button><button class="mset" id="rebirthBtn" type="button"><b>Rebirth</b><small></small></button></div>
     <div class="mstats" id="mstats"></div>
+    <small id="saveStatus" role="status">Progress saves in this browser</small>
   </div>
   <p class="mfoot">made by kaylyn heheh</p>
 </div>
@@ -993,9 +1006,39 @@ const HELLO=['Hi hi!','Mrrp, hello!','Evening~','Meow!','Hiya, night owl!','*str
 /* ---------- Save ---------- */
 const KEY='midnight-paws-boba-v1';
 let S={money:0,unlocked:['classic','jasminemt','bsmilk','pearls'],served:0,perfect:0,combo:0,best:0,xp:0,level:1,met:[],goals:[],fresh:[],freshIng:[],lastDay:'',dayStreak:0,earned:0,creations:[],bestCatch:0,audio:{all:true,music:true,rain:true,sfx:true}};
-try{const raw=localStorage.getItem(KEY);if(raw){const s=JSON.parse(raw);if(s&&Array.isArray(s.unlocked))S=Object.assign(S,s);}}catch(e){}
+let lastSave=null, unreadableSave=false;
+function warnSave(message){
+  const warning=document.getElementById('saveWarning');
+  warning.textContent=message;
+  warning.hidden=false;
+}
+try{
+  lastSave=localStorage.getItem(KEY);
+  if(lastSave!==null){
+    const stored=JSON.parse(lastSave);
+    if(!stored || !Array.isArray(stored.unlocked))throw new Error('Invalid save');
+    Object.assign(S,stored);
+  }
+}catch(error){
+  unreadableSave=true;
+  warnSave('Your save could not be opened. Progress this session is temporary.');
+}
 S.audio=Object.assign({all:true,music:true,rain:true,sfx:true},S.audio||{});
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+function save(){
+  if(unreadableSave)return;
+  try{
+    if(localStorage.getItem(KEY)!==lastSave){
+      warnSave('Another tab changed your café. Reload to continue from its save.');
+      return;
+    }
+    const next=JSON.stringify(S);
+    if(next!==lastSave)localStorage.setItem(KEY,next);
+    lastSave=next;
+    document.getElementById('saveWarning').hidden=true;
+  }catch(error){
+    warnSave('Browser storage is unavailable. New progress may be lost when you leave.');
+  }
+}
 const has=id=>S.unlocked.includes(id);
 function ingOpen(id){if(id==='ice'||G.mode==='lab')return true;if(ING[id].kind==='top')return has(id);return DRINKS.some(d=>has(d.id)&&d.ings.includes(id));}
 function unlockCost(id){if(ING[id].kind==='top')return ING[id].cost;const d=DRINKS.filter(d=>!has(d.id)&&d.ings.includes(id)).sort((a,b)=>a.cost-b.cost)[0];return d?d.cost:9999;}
@@ -1701,7 +1744,9 @@ $('#albumBtn').onclick=()=>{renderAlbum();$('#album').hidden=false;};
 const np=$('#notepad');
 function toggleNotes(force){const open=force!==undefined?force:!np.classList.contains('open');np.classList.toggle('open',open);$('#noteTab').classList.remove('glow');if(open)setTimeout(()=>$('#notes').focus(),250);}
 $('#noteTab').onclick=()=>toggleNotes(true);$('#npClose').onclick=()=>toggleNotes(false);
-$('#newPage').onclick=()=>{$('#notes').value='';$('#notes').focus();};
+$('#notes').value=typeof S.notes==='string'?S.notes:'';
+$('#notes').oninput=()=>{S.notes=$('#notes').value;save();};
+$('#newPage').onclick=()=>{S.notes='';save();$('#notes').value='';$('#notes').focus();};
 document.addEventListener('keydown',e=>{
   if(!$('#menu').hidden||!$('#catch').hidden||!$('#designer').hidden)return;
   if(e.target.matches('textarea,input')){if(e.key==='Escape')toggleNotes(false);return;}
@@ -5459,7 +5504,24 @@ levelUp=function(){_levelUpV17();};
 function showShopHelp(){const h=$('#shopHelp');h.innerHTML=`<span><b>Glowing</b> = new! Walk close, tap <b>Buy</b>.</span><button class="shx" id="shopHelpX" type="button" aria-label="Close">×</button>`;h.hidden=false;
   clearTimeout(SH.helpT);SH.helpT=setTimeout(()=>{h.hidden=true;},6000);}
 
+const cafePad=document.getElementById('cafePad');
+cafePad.addEventListener('pointerdown',event=>{
+  const key=event.target.dataset.k;
+  if(!key)return;
+  event.preventDefault();
+  event.target.setPointerCapture(event.pointerId);
+  K3[key]=true;
+});
+cafePad.addEventListener('lostpointercapture',event=>{
+  if(event.target.dataset.k)K3[event.target.dataset.k]=false;
+});
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  navigator.serviceWorker.register('./sw.js').then(()=>navigator.serviceWorker.ready).then(()=>{
+    document.getElementById('saveStatus').textContent='Saves in this browser · Ready to play offline';
+  }).catch(()=>{});
+}
 /* ---------- Boot ---------- */
+if(S.me)$('#playBtn').textContent='Continue shift';
 ensureGoals();save();
 renderBar();renderHUD();renderMenus();renderNext();
 renderShelf();renderMe();renderMenuScreen();applyAudio();

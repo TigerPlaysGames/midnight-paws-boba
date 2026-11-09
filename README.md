@@ -6,13 +6,13 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-Open `index.html` in a browser (Chrome works best). Everything is in that one file.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/). Open the link and create your cat. On a touchscreen, use the arrow pad to walk, drag the scene to look, and tap the station prompt.
 
-It needs an internet connection the first time, for two things:
-- **Three.js r128** from cdnjs (the 3D graphics). If it can't load, the game falls back to a 2D version.
-- **Google Fonts**: Gaegu, M PLUS Rounded 1c, Mochiy Pop One and Pacifico.
+Your character, tips, XP, unlocks and notebook save automatically in this browser. Return to the same address on the same browser and device to continue. An unfinished drink starts fresh. Clearing site data or ending a private browsing session can erase progress.
 
-Progress saves in the browser's `localStorage` under the key `midnight-paws-boba-v1`. To start over, clear that key, or use Rebirth in the game.
+After the menu says **Ready to play offline**, you can reopen the same link without internet. The game bundles Three.js r128 and uses system fonts if Google Fonts are unavailable.
+
+To run locally, serve the repository with `python -m http.server 8000` and open `http://localhost:8000/`. GitHub Pages serves the root of `main`. When changing the game files, bump the cache version in `sw.js` so returning players receive the update after closing old tabs.
 
 ### Controls (café)
 | Key | Action |
@@ -97,4 +97,3 @@ If Three.js can't load (offline), the game runs in a 2D fallback, so most menus 
 ## Ideas for next steps
 - Split the file into modules (`audio.js`, `cafe3d.js`, `shops.js`, …) to make it easier to edit.
 - Remove dead code from earlier layers, like the old town (`buildTown`), The Purr Lounge (`buildBar`) and Boba Catch.
-- Publish it on GitHub Pages or itch.io.
