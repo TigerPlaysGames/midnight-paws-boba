@@ -13,6 +13,8 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
+<link rel="stylesheet" href="cafe-service.css?v=6">
+<script src="cafe-service.js?v=6"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -785,16 +787,15 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
   </section>
 </div>
 
-<button class="notetab" id="noteTab" type="button">notes</button>
+<button class="notetab" id="noteTab" type="button">ticket</button>
 <button class="notetab ctab" id="ctab" type="button">creations <b id="ctabN">0</b></button>
 <aside class="notepad crpanel" id="crPanel" aria-label="My creations">
   <div class="nphead"><h2>my creations</h2><button class="npbtn" id="crClose" type="button">Close</button></div>
   <div class="crlist" id="crList"></div>
 </aside>
-<aside class="notepad" id="notepad" aria-label="Order notepad">
-  <div class="nphead"><h2>order notes</h2><button class="npbtn" id="newPage" type="button">Clear</button><button class="npbtn" id="npClose" type="button">Close</button></div>
+<aside class="notepad" id="notepad" aria-label="Order ticket">
+  <div class="nphead"><h2>Order ticket</h2><button class="npbtn" id="npClose" type="button">Close</button></div>
   <section id="orderTicket" aria-label="Current order" hidden><b id="ticketName"></b><ul id="ticketItems"></ul></section>
-  <textarea id="notes" aria-label="Your handwritten order notes" spellcheck="false" placeholder="jot the order...&#10;jasmine MT&#10;no ice&#10;+ nata"></textarea>
 </aside>
 
 <div class="modal" id="shop" hidden><div class="card" role="dialog" aria-label="Shop">
@@ -849,13 +850,14 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
       <button class="mbtn" id="labBtn" type="button"><b>Drink Lab</b><small>Lv 7</small></button>
       <button class="mbtn" id="meBtn" type="button"><b>My Cat</b><small></small></button>
     </div>
-    <div class="msettings"><button class="mset" id="backupBtn" type="button"><b>Save backups</b></button><button class="mset" id="guideBtn" type="button"><b>How to play</b></button><button class="mset" id="menuSound" type="button"><b>Sound</b></button><button class="mset" id="rebirthBtn" type="button"><b>Rebirth</b><small></small></button></div>
+    <div class="msettings"><button class="mset" id="exploreCafe" type="button"><b>Explore café</b></button><button class="mset" id="backupBtn" type="button"><b>Save backups</b></button><button class="mset" id="guideBtn" type="button"><b>How to play</b></button><button class="mset" id="menuSound" type="button"><b>Sound</b></button><button class="mset" id="rebirthBtn" type="button"><b>Rebirth</b><small></small></button></div>
     <div class="mstats" id="mstats"></div>
     <small id="saveStatus" role="status">Progress saves in this browser</small>
   </div>
   <p class="mfoot">made by kaylyn heheh</p>
 </div>
 </div>
+<dialog id="bobaService" aria-label="Midnight Paws boba café"></dialog>
 <dialog id="marketDialog" aria-label="Midnight Market restaurants"><header class="mk-nav"><button class="mk-back" type="button">Back to café</button><span class="mk-wallet" aria-label="Available funds"></span></header><div class="mk-body"></div><div class="mk-message" role="status"></div></dialog>
 <div class="modal top" id="backupPanel" hidden><div class="card" role="dialog" aria-label="Save backups">
   <button class="close" data-close type="button" aria-label="Close">×</button>
@@ -1779,9 +1781,6 @@ $('#albumBtn').onclick=()=>{renderAlbum();$('#album').hidden=false;};
 const np=$('#notepad');
 function toggleNotes(force){const open=force!==undefined?force:!np.classList.contains('open');np.classList.toggle('open',open);$('#noteTab').classList.remove('glow');if(open)updateTicket();}
 $('#noteTab').onclick=()=>toggleNotes(true);$('#npClose').onclick=()=>toggleNotes(false);
-$('#notes').value=typeof S.notes==='string'?S.notes:'';
-$('#notes').oninput=()=>{S.notes=$('#notes').value;save();};
-$('#newPage').onclick=()=>{S.notes='';save();$('#notes').value='';$('#notes').focus();};
 document.addEventListener('keydown',e=>{
   if(!$('#menu').hidden||!$('#catch').hidden||!$('#designer').hidden)return;
   if(e.target.matches('textarea,input')){if(e.key==='Escape')toggleNotes(false);return;}
@@ -2265,7 +2264,7 @@ function init3D(){
   }catch(err){M3.fail=1;}
 }
 function loop3D(now){
-  if($('#menu').hidden||$('#marketDialog').open||!M3.ok){M3.run=false;return;}
+  if($('#menu').hidden||$('#marketDialog').open||$('#bobaService').open||!M3.ok){M3.run=false;return;}
   const dt=Math.min(.05,(now-M3.last)/1000);M3.last=now;const t=now/1000;
   if(!M3.drag&&!reduce)M3.ang+=dt*.07;
   const d=M3.dist||14,ce=Math.cos(M3.elev);M3.cam.position.set(Math.sin(M3.ang)*d*ce,1.2+d*Math.sin(M3.elev),Math.cos(M3.ang)*d*ce);M3.cam.lookAt(0,1.9,0);
@@ -3361,8 +3360,7 @@ function loopC3Body(now){
 }
 
 /* ================= v9: tips ================= */
-const TIPS=['Reminder: you can use the notes on the side so you don’t forget the order!','Hold E a little longer to fill each pour all the way.','Perfect drinks in a row stack a combo bonus!',
-  'Open Notes to check the recipe and what’s in your cup.','New flavors and furniture are waiting in the Shop.','Drag on the café to look around.','Reminder: jot the order in your notes before the bubble fades!'];
+const TIPS=['Perfect drinks in a row build a combo bonus.','Fast service earns bigger tips.','New flavors and toppings are waiting at Boba Supply Co.','Order tickets list every extra the cat asked for.'];
 let tipI=0;G.tipClock=0;
 function showTip(txt){const el=$('#tip');$('#tipTxt').textContent=txt||TIPS[tipI++%TIPS.length];el.classList.remove('show');void el.offsetWidth;el.classList.add('show');sfx('chime');
   clearTimeout(G.tipT);G.tipT=setTimeout(()=>el.classList.remove('show'),9000);}
@@ -4095,20 +4093,15 @@ function loopShop(now){
 
 /* ================= v10: guidebook ================= */
 const GUIDE=[
- ['Basics',`<ol class="gsteps"><li><b>A cat sits at the counter.</b> Press <span class="gk">Take order</span> and read what they want.</li>
-  <li><b>Remember it.</b> Open the <span class="gk">notes</span> tab on the right to write it down. The bubble fades after a while.</li>
-  <li><b>Make the drink</b> at the stations behind the counter.</li><li><b>Shake it</b> at the shaker, then <b>serve</b> it at the pick-up tray.</li>
-  <li><b>Earn tips and XP.</b> Spend tips in the shops to unlock new flavors and furniture.</li></ol>`],
- ['Making drinks',`<p class="gp">Every drink follows the same path along the counter, left to right:</p>
-  <div class="gflow"><span>Cups</span><i>→</i><span>Ice?</span><i>→</i><span>Tea · Milk</span><i>→</i><span>Syrup · Powder</span><i>→</i><span>Topping?</span><i>→</i><span>Shaker</span><i>→</i><span>Serve</span></div>
-  <p class="gp">Check the <span class="gk">Recipes</span> button for what goes in each drink. Hold to pour until the station says it’s full. Only add ice or a topping if the cat asked for it.</p>`],
- ['Controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
-  <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Open your notes</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
+ ['Café counter','<ol class="gsteps"><li><b>Pick a ticket</b> from the order rail. Each cat has its own cup.</li><li><b>Tap the tea dispenser.</b> It fills the cup in 3.5 seconds. Start another ticket while it pours.</li><li>Tap the requested topping, use the <b>lid press</b>, then <b>Serve</b> the cat.</li><li>Tap <b>Pause</b> whenever you need a break. Your orders and tips save in this browser.</li></ol>'],
+ ['Desserts','<p class="gp">The dessert tray opens at <b>level 3</b>. A ticket can ask for strawberry mochi, custard taiyaki, or a matcha roll alongside the drink.</p><p class="gp">Tap the dessert while the tea pours. The oven and the lid press each handle one ticket at a time.</p>'],
+ ['3D controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
+  <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
  ['Shops',`<p class="gp">Press <span class="gk">Shop</span> and pick a store. You’ll arrive on the sidewalk, so walk in through the door.</p>
   <ul class="glist"><li><b>Boba Supply Co.</b> sells new drinks and toppings. Cats start ordering whatever you unlock.</li><li><b>Paws &amp; Co. Home</b> sells furniture, tables and plants. It opens at level 3.</li></ul><p class="gp">Walk close to anything and a <b>Buy</b> button appears.</p>`],
  ['Decorating',`<p class="gp">At level 3, choose <span class="gk">Decorate</span> on the menu and walk into your café.</p>
   <ul class="glist"><li>Pick furniture you own from the tray, then click the floor to place it.</li><li>Click anything you placed to <b>Rotate</b>, <b>Move</b> or <b>Trash</b> it.</li><li>Change the walls and floor with the color swatches.</li><li>Switch to <b>Bird view</b> to see the whole room from above.</li></ul>`],
- ['Tips',`<ul class="glist"><li>Perfect drinks in a row build a <b>combo</b> that multiplies your tips.</li><li>Faster service means a bigger tip.</li><li>Open Notes for the current order ticket.</li>
+ ['Tips',`<ul class="glist"><li>Perfect drinks in a row build a <b>combo</b> that multiplies your tips.</li><li>Faster service means a bigger tip.</li><li>Pick a ticket to switch between drinks.</li>
   <li>Come back each day for a <b>gift</b>, and finish <b>goals</b> for bonus tips.</li><li>Rare cats sometimes visit and pay triple.</li></ul>`]
 ];
 let gPage=0;
@@ -5329,7 +5322,7 @@ document.addEventListener('keydown',e=>{if((e.key==='v'||e.key==='V')&&!e.repeat
 const TUT=[
   {t:'Welcome to your café!',p:'Walk with <kbd>W A S D</kbd> and drag the mouse to look around. Let’s make your first drink together.',next:1},
   {t:'A customer!',p:'A cat sat down at the counter. Press <b>Take order</b> to hear what they want.',done:()=>G.phase!=='greet'&&G.phase!=='empty'},
-  {t:'Remember the order',p:'Listen closely. Tip: open your <b>notes</b> on the right (or press <kbd>N</kbd>) to write it down.',done:()=>G.phase==='made'},
+  {t:'Check the order',p:'Open the <b>ticket</b> on the right to check the order.',done:()=>G.phase==='made'},
   {t:'Grab a cup',p:'Walk to <b>Cups</b> (follow the arrow) and press <kbd>E</kbd>.',target:'cups',done:()=>!!G.cup},
   {t:'Pour the drink',p:'Walk to the stations their drink needs (like <b>Teas</b> and <b>Milk</b>), press <kbd>E</kbd>, then <b>hold</b> <kbd>1</kbd>–<kbd>9</kbd> to pour. Check <b>menu</b> for recipes!',target:'tea',done:()=>G.cup&&canShake(G.cup)},
   {t:'Add extras (if they asked)',p:'Did they want ice or a topping? Add it now. When you’re ready, walk to the <b>Shaker</b>.',target:'shaker',next:1},
@@ -5384,7 +5377,8 @@ function openRebirth(){const n=S.rebirths||0;
    <div><h4>Resets</h4><ul class="glist"><li>Level &amp; XP</li><li>Tips (back to $0)</li><li>Unlocked drinks &amp; toppings</li></ul></div></div>
    <div class="rbbonus">✦ Rebirth ${n+1}: <b>+${(n+1)*25}% tips</b> on perfect drinks, forever</div>`;
   $('#rbGo').hidden=S.level<REBIRTH_LV;$('#rebirth').hidden=false;}
-function doRebirth(){S.rebirths=(S.rebirths||0)+1;S.money=0;S.level=1;S.xp=0;S.combo=0;S.unlocked=['classic','jasminemt','bsmilk','pearls'];S.fresh=[];S.freshIng=[];save();
+function doRebirth(){if(S.cafeService)Object.assign(S.cafeService,{selected:null,orders:[],arrival:0,paused:false});
+  S.rebirths=(S.rebirths||0)+1;S.money=0;S.level=1;S.xp=0;S.combo=0;S.unlocked=['classic','jasminemt','bsmilk','pearls'];S.fresh=[];S.freshIng=[];save();
   $('#rebirth').hidden=true;sfx('rare');confetti(90);banner(`REBIRTH ✦ ${S.rebirths}`,`+${S.rebirths*25}% tips on perfect drinks forever`,'lvl');
   try{renderHUD();renderMenus();renderBar();}catch(e){}renderMenuScreen();}
 $('#rebirthBtn').onclick=()=>{initAudio();applyAudio();sfx('click');openRebirth();};
@@ -5394,13 +5388,13 @@ renderMenuScreen=function(){_renderMenuV15();const n=S.rebirths||0;$('#rebirthBt
   if(n)$('#mstats').insertAdjacentHTML('beforeend',`<span class="rbstar">✦ ${n} · +${n*25}% tips</span>`);};
 
 /* guide additions */
-GUIDE[0][1]+=`<p class="gp"><button class="btn ghost" type="button" id="tutAgain">Play the tutorial again</button></p>`;
+GUIDE[2][1]+=`<p class="gp"><button class="btn ghost" type="button" id="tutAgain">Replay the 3D tutorial</button></p>`;
 GUIDE[2][1]=GUIDE[2][1].replace('<tr><td>Scroll</td>','<tr><td><kbd>V</kbd></td><td>Switch first / third person</td></tr><tr><td>Scroll</td>');
 GUIDE[3][1]=`<p class="gp">Press <span class="gk">Shops</span> to open the map, then tap a shop to go inside.</p>
   <ol class="gsteps"><li><b>Walk</b> with <kbd>W A S D</kbd> or the arrow pad, and drag to look around.</li><li>Things that <b>glow</b> are things you don’t own yet.</li>
   <li>Walk <b>close</b> to one and a <span class="gk">Buy $</span> button pops up. Click it!</li><li>Walk back out the <b>door</b> to return to the map, or press <span class="gk">← Leave</span>.</li></ol>
   <ul class="glist"><li><b>Boba Supply Co.</b> – new drinks &amp; toppings</li><li><b>Paws &amp; Co. Home</b> – furniture (Lv 3)</li><li><b>Whisker Wear</b> – outfits for your cat</li></ul>`;
-document.addEventListener('click',e=>{if(e.target.id==='tutAgain'){$('#guide').hidden=true;S.tutDone=false;save();if(!$('#menu').hidden){toast('The tutorial starts when you press Start');}else tutStart();}});
+document.addEventListener('click',e=>{if(e.target.id==='tutAgain'){$('#guide').hidden=true;S.tutDone=false;save();if(!$('#menu').hidden){toast('Choose Explore café to start the 3D tutorial.');}else tutStart();}});
 
 
 /* ================= v16: unlock levels ================= */
@@ -5487,7 +5481,7 @@ setView=function(tp){C3.tp=tp;C3.heldSig=null;$('#viewBtn').textContent=S.counte
 TUT.splice(0,TUT.length,
   {t:'Welcome to your café!',p:'Walk with <kbd>W A S D</kbd> and drag the mouse to look around. Let’s make your first drink together.',next:1},
   {t:'Take the order',p:'A cat is sitting at the counter. Press <b>Take order</b> to hear what they want.',ui:'#takeBtn',done:()=>G.phase!=='greet'&&G.phase!=='empty'},
-  {t:'Remember it',p:'Listen closely! Tap <b>notes</b> on the right (or press <kbd>N</kbd>) to write the order down.',ui:'#noteTab',done:()=>G.phase==='made'},
+  {t:'Read the ticket',p:'Tap <b>ticket</b> on the right to check the order.',ui:'#noteTab',done:()=>G.phase==='made'},
   {t:'Grab a cup',p:'Walk left to <b>Cups</b> (follow the arrow) and press <kbd>E</kbd>.',target:'cups',done:()=>!!G.cup},
   {t:'Pour the drink',p:'Go to the stations the drink needs, press <kbd>E</kbd>, then <b>hold</b> <kbd>1</kbd>–<kbd>9</kbd> to pour. The <b>menu</b> board shows every recipe.',target:'tea',ui:'#chalk',done:()=>G.cup&&canShake(G.cup)},
   {t:'Extras?',p:'Did they ask for ice or a topping? Add it now. Then head to the <b>Shaker</b>.',target:'shaker',next:1},
@@ -5529,9 +5523,9 @@ GUIDE[4][1]=GUIDE[4][1].replace(/level 3/g,'level 5');
 TUT.splice(0,TUT.length,
   {t:'Hi! Let’s make boba',p:'Use the arrow pad or <kbd>W A S D</kbd> to walk · drag to look',next:1},
   {t:'Take the order!',p:'Tap Take order at the counter',ui:'#takeBtn',done:()=>G.phase!=='greet'&&G.phase!=='empty'},
-  {t:'Remember it',p:'Your order ticket is in Notes',ui:'#noteTab',done:()=>G.phase==='made'},
+  {t:'Read the ticket',p:'Tap Ticket to check the drink and extras.',ui:'#noteTab',done:()=>G.phase==='made'},
   {t:'Grab a cup',p:'Tap Cups or press <kbd>E</kbd> at the station',target:'cups',done:()=>!!G.cup},
-  {t:'Pour it in',p:'Hold an ingredient to pour · open Notes for the recipe',target:'tea',ui:'#chalk',done:()=>G.cup&&canShake(G.cup)},
+  {t:'Pour it in',p:'Hold an ingredient to pour · open Ticket for the recipe',target:'tea',ui:'#chalk',done:()=>G.cup&&canShake(G.cup)},
   {t:'Ice or toppings?',p:'Only if they asked!',target:'shaker',next:1},
   {t:'Shake it!',p:'Shake five times · tap the shaker or press Space',target:'shaker',done:()=>G.cup&&G.cup.shaken},
   {t:'Serve it',p:'Press <kbd>E</kbd> at Serve',target:'serve',done:()=>S.served>(TUTS.served0||0)},
@@ -5581,7 +5575,7 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
     document.addEventListener('visibilitychange',()=>{if(!document.hidden&&navigator.onLine)check();});
     setInterval(()=>{if(!document.hidden&&navigator.onLine)check();},300000);
     await navigator.serviceWorker.ready;
-    if(!updateReady)status.textContent='Cooking & Crew · Saves here · Offline ready';
+    if(!updateReady)status.textContent='Boba café · Saves here · Offline ready';
   }).catch(()=>{});
 }
 /* ---------- Shift checkpoints ---------- */
@@ -5713,7 +5707,7 @@ function validBackup(data){
   const furniture=ids(FURN);
   const room=fields({wall:ids(WALLS),floor:ids(FLOORS),night:flag,items:list(fields({t:furniture,x:num,y:num,z:num,r:num,s:num,f:flag,c:ink},['t','x']))},['wall','floor','items']);
   const unlock=v=>drink(v)||topping(v);
-  const rules={market:v=>!!window.MidnightMarket?.valid(v),counterView:flag,level:v=>Number.isSafeInteger(v)&&v>=1,unlocked:list(unlock),fresh:list(unlock),freshIng:list(ing),
+  const rules={cafeService:v=>!!window.BobaService?.valid(v),market:v=>!!window.MidnightMarket?.valid(v),counterView:flag,level:v=>Number.isSafeInteger(v)&&v>=1,unlocked:list(unlock),fresh:list(unlock),freshIng:list(ing),
     met:list(coat),lastDay:str,grumpDay:str,audio:fields({all:flag,music:flag,rain:flag,sfx:flag}),
     me:maybe(fields({name:str,coat,acc,eye:v=>v===''||ink(v),apron:ink},['name','coat','acc','apron'])),
     goals:list(fields({t:ids(GOALS),p:num,n:num,reward:num,set:list(drink),ready:flag},['t','p','n','reward','set']),3),
@@ -5755,11 +5749,38 @@ window.MidnightMarket?.init({
   exit(){setMoney(S.money);renderHUD();renderMenuScreen();}
 });
 /* ---------- Boot ---------- */
-if(S.me)$('#playBtn').textContent='Continue shift';
+if(window.BobaService){
+  const explore=$('#playBtn').onclick;
+  $('#exploreCafe').onclick=explore;
+  $('#playBtn').textContent=S.cafeService?'Continue café':'Open café';
+  $('#playBtn').onclick=window.BobaService.open;
+  window.BobaService.init({
+    state:S,drinks:DRINKS,ingredients:ING,tops:TOPS,coats:COATS,names:NAMES,save,
+    portrait:id=>catSVG(COATS.find(c=>c.id===id),'happy','none'),
+    enter(){history.replaceState(null,'','#cafe');initAudio();applyAudio();},
+    reward(order){
+      const recipe=DRINKS.find(d=>d.id===order.drink),rare=!!COATS.find(c=>c.id===order.coat).rare;
+      S.combo++;S.best=Math.max(S.best,S.combo);
+      const base=recipe.price+(order.top?1:0)+(order.dessert?4:0)+Math.ceil(4*order.left/order.limit);
+      const pay=Math.round(base*mult()*(rare?3:1)*(1+.25*(S.rebirths||0)));
+      S.money+=pay;S.earned+=pay;S.served++;S.perfect++;
+      if(!S.met.includes(order.coat))S.met.push(order.coat);
+      S.fresh=S.fresh.filter(id=>id!==order.drink&&id!==order.top);
+      gainXP(rare?60:25);
+      goalEvent({perfect:true,pay,topping:!!order.top,fast:order.left>order.limit/2,drink:order.drink,noice:false,rare});
+      setMoney(S.money);sfx('perfect',S.combo);
+      return pay;
+    },
+    exit(){history.replaceState(null,'',location.pathname+location.search);setMoney(S.money);renderHUD();renderMenuScreen();$('#playBtn').textContent='Continue café';}
+  });
+}else{$('#exploreCafe').hidden=true;}
 ensureGoals();save();
 renderBar();renderHUD();renderMenus();renderNext();
 renderShelf();renderMe();renderMenuScreen();applyAudio();
-if(location.hash==='#market'&&!$('#marketBtn').disabled)$('#marketBtn').click();
+const fromLauncher=document.referrer && new URL(document.referrer).pathname.endsWith('/play.html');
+if(location.hash==='#cafe'||(location.hash==='#market'&&fromLauncher)){
+  history.replaceState(null,'','#cafe');$('#playBtn').click();
+}else if(location.hash==='#market'&&!$('#marketBtn').disabled)$('#marketBtn').click();
 })();
 </script>
 

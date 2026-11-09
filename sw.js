@@ -1,10 +1,10 @@
 // Bump the version when changing any cached game file.
 const prefix = 'midnight-paws-boba-shell-';
-const cacheName = prefix + '5';
+const cacheName = prefix + '6';
 const home = new URL('index.html', self.registration.scope).href;
 const renderer = new URL('assets/three-r128.min.js', self.registration.scope).href;
 
-const files = [home, renderer, ...['market.css?v=5','market.js?v=5','market-scene.js?v=5','market-cooking.js?v=5','play.html',
+const files = [home, renderer, ...['market.css?v=5','market.js?v=5','market-scene.js?v=5','market-cooking.js?v=5','cafe-service.css?v=6','cafe-service.js?v=6','play.html',
   ...['udon','seoul','saigon','bangkok','chennai','malaya'].map(id=>'assets/market/'+id+'.webp')
 ].map(path=>new URL(path,self.registration.scope).href)];
 
@@ -34,8 +34,9 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const isHome = event.request.mode === 'navigate' &&
     [self.registration.scope, home].includes(url.origin + url.pathname);
-  if (!isHome && !files.includes(url.href)) return;
-  const key = isHome ? home : url.href;
+  const isLauncher = event.request.mode === 'navigate' && url.origin + url.pathname === new URL('play.html',self.registration.scope).href;
+  if (!isHome && !isLauncher && !files.includes(url.href)) return;
+  const key = isHome ? home : isLauncher ? url.origin + url.pathname : url.href;
   event.respondWith(caches.open(cacheName).then(async cache =>
     (await cache.match(key)) || fetch(event.request)));
 });

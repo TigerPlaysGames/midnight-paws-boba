@@ -1,22 +1,22 @@
 # Midnight Paws Boba
 
-A cozy lo-fi cat boba café you play in the browser. You take orders from cats, make boba drinks in first person (3D), earn tips and XP, unlock new flavors, shop for furniture and outfits, decorate your café, invent drinks in a lab, and rebirth for a permanent tip bonus.
+Run a lo-fi cat boba counter, earn tips, and grow your café. Visit six restaurant kitchens, explore the original 3D café, or decorate your space as you level up.
 
 Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/). Open the link and create your cat. On a touchscreen, use the arrow pad to walk, drag the scene to look, and tap the station prompt.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=6). A cat arrives as soon as you open the counter. Select a ticket, tap its tea dispenser, add the requested topping, use the lid press and serve. Switch to a second ticket while the first drink pours. At level 3, some cats also order a dessert. **Pause** freezes every guest and machine.
 
-Your character, tips, XP, unlocks and notebook save automatically in this browser. Return to the same address on the same browser and device to continue. Continue shift restores the waiting customer, ingredient quantities, shake progress and separate café and lab cups. Use **Save backups → Download save** to keep a portable copy. Open **Save backups → Restore from file** in another browser or on another device to continue there. Clearing site data or ending a private browsing session can erase progress.
+Your tips, XP, unlocks, tickets and unfinished drinks save automatically in this browser. Open the game again on the same browser and device to continue. For a different device, use **Menu → Save backups → Download save**, then **Restore from file** on the other device. Clearing site data or ending a private browsing session can erase that browser’s progress.
 
-After the menu says **Ready to play offline**, you can reopen the same link without internet. The game bundles Three.js r128 and uses system fonts if Google Fonts are unavailable.
+After the menu says **Offline ready**, you can reopen the link without internet. The game bundles Three.js r128 and uses system fonts if Google Fonts are unavailable.
 
 To run locally, serve the repository with `python -m http.server 8000` and open `http://localhost:8000/`. GitHub Pages serves the root of `main`. When changing the game files, bump the cache version in `sw.js` so returning players receive the update after closing old tabs.
 
 ### Midnight Market
 
-Choose **Midnight Market · Cooking & Crew** on the main menu, or use [the update and play link](https://tigerplaysgames.github.io/midnight-paws-boba/play.html) in your current game tab. It checks the offline build and opens the market using the same browser save. Noren Noodle Bar opens free. Use earnings from either the café or your restaurants to open the other five kitchens. Each restaurant has three dishes, its own equipment, three upgrade paths and a one-time $20 bonus for serving its entire menu.
+Choose **Midnight Market · Cooking & Crew** on the main menu, or [open the market](https://tigerplaysgames.github.io/midnight-paws-boba/index.html#market). The café and restaurants use the same browser save. Noren Noodle Bar opens free. Use earnings from either the café or your restaurants to open the other five kitchens. Each restaurant has three dishes, its own equipment, three upgrade paths and a one-time $20 bonus for serving its entire menu.
 
 Choose Cozy Service for a single guest, Dinner Rush for a 65-second queue, or a six-meal Catering Contract for a $35 bonus. Select a ticket, prep, cook, choose its finishing ingredient and serve. After warm-up, the ticket opens a hands-on station. Drain udon, stir rice cakes clockwise, layer a bánh mì, toss and catch pad thai, flip and lift a dosa, or measure water and vent the rice steamer. Completing the station earns an extra $2 on service. Each station supports touch, mouse and keyboard controls. A second cooktop lets you work on two tickets in parallel. Pause Shift freezes the clock. Resume from the same restaurant, including after an offline reload or a save-file transfer.
 
@@ -33,7 +33,7 @@ The painted counter works with mouse, keyboard and touch. **Switch to first pers
 | Moonrise Tiffin · India | Dosa |
 | Pandan Corner · Malaysia | Nasi lemak |
 
-### Controls (café)
+### Explore café controls (3D)
 | Key | Action |
 |---|---|
 | W A S D / arrows | Walk |
@@ -41,19 +41,20 @@ The painted counter works with mouse, keyboard and touch. **Switch to first pers
 | E | Use the station you're standing at |
 | Hold E or 1–9 (0 for the 10th) | Pour or scoop |
 | Space | Shake, then serve |
-| N | Notes |
+| N | Order ticket |
 | V | First person / third person / fixed counter |
 | Scroll | Zoom |
 | Esc | Close a window |
 
 ## Features
 
-- **Orders:** a cat sits at the counter and you press Take order. The cat speaks the order with typing blips. Open Notes for a free ingredient checklist and room for handwritten notes.
+- **Orders:** up to three cats wait at the counter with persistent tickets and separate cups. Start several flavors in parallel, watch each guest’s patience, then seal and serve.
 - **First-person 3D counter:** stations run left to right: cups, ice, tea, milk, syrup, powder, toppings, shaker, serve. Dispenser handles press, pumps push, scoops move and the shaker shakes.
 - **Procedural sounds (Web Audio):** ice clicking in a plastic cup, a tea splish, a milk pour that rises in pitch, a syrup drizzle, a powder puff, sticky boba, ice rattling in the shaker, and a sound on every button.
 - **Music:** rotating lo-fi tracks in the café and rotating jazz tunes in the shops. Day and night switch every 5 minutes, and sound settings toggle all sound, music, rain and SFX separately.
 - **Progression:** tips, XP, levels, a combo multiplier, collectable goals (finished goals wait for you to press Collect), a daily gift, a cat album with rare cats, and Rebirth (Lv 10, +25% tips on perfect drinks per rebirth).
 - **Unlocks:**
+  - Lv 3: Dessert tray
   - Lv 5: Customize Café, Paws & Co. Home and Whisker Wear
   - Lv 7: Drink Lab
   - Lv 10: Rebirth
