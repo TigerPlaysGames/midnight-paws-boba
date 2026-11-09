@@ -1,259 +1,279 @@
-/* The café clock advances only while the counter is open and visible. */
-window.BobaService = (() => {
+/* First-person service shares the café wallet and only advances while open and visible. */
+window.BobaService=(()=>{
   'use strict';
-  const pourTime = 3.5, lidTime = 0.9, ovenTime = 2.8, arrivalTime = 3;
-  const desserts = {mochi:'Strawberry mochi', taiyaki:'Custard taiyaki', roll:'Matcha roll'};
-  const stages = ['empty','pouring','filled','sealing','ready'];
-  let app, dialog, state, stamp, nextSave, interval, newestId, message = '';
-  const by = selector => dialog.querySelector(selector);
-  const pick = array => array[Math.floor(Math.random() * array.length)];
-  const menu = () => app.drinks.filter(d => app.state.unlocked.includes(d.id));
-  const drink = id => app.drinks.find(d => d.id === id);
-  const selected = () => state.orders.find(o => o.id === state.selected);
-  const cup = () => ({stage:'empty',flavor:null,top:null,left:0});
-  const newState = () => ({version:1,paused:false,serial:0,arrival:arrivalTime,selected:null,orders:[]});
-  const seconds = (n, max) => Number.isFinite(n) && n >= 0 && n <= max;
-  function valid(s) {
-    if (!app || !s || s.version !== 1 || typeof s.paused !== 'boolean' || !Number.isSafeInteger(s.serial) ||
-        s.serial < 0 || !seconds(s.arrival,arrivalTime) || !Array.isArray(s.orders) || s.orders.length > 3) return false;
-    const ids = new Set();
-    for (const o of s.orders) {
-      if (!o || !Number.isSafeInteger(o.id) || o.id < 1 || o.id > s.serial || ids.has(o.id) ||
-          !app.names.includes(o.name) || !app.coats.some(c => c.id === o.coat) || !drink(o.drink) ||
-          (o.top !== null && !app.tops.includes(o.top)) || (o.dessert !== null && !Object.hasOwn(desserts,o.dessert)) ||
-          !seconds(o.limit,120) || o.limit < 1 || !seconds(o.left,o.limit) ||
-          !['none','waiting','baking','done'].includes(o.side) || !seconds(o.bake,ovenTime)) return false;
-      const c = o.cup;
-      if (!c || !stages.includes(c.stage) || (c.flavor !== null && !drink(c.flavor)) ||
-          (c.top !== null && !app.tops.includes(c.top)) || !seconds(c.left,pourTime) ||
-          (c.stage !== 'empty' && !c.flavor)) return false;
+  const roomApi=window.BobaRoom, pourTime=3.5,lidTime=.9,ovenTime=2.8,arrivalTime=3;
+  const desserts={mochi:'Strawberry mochi',taiyaki:'Custard taiyaki',roll:'Matcha roll'};
+  const stages=['empty','pouring','filled','sealing','ready'];
+  let app,dialog,room,state,frameId,last,saveDue,readout='',notice='',noticeUntil=0;
+  const by=s=>dialog.querySelector(s),pick=a=>a[Math.floor(Math.random()*a.length)];
+  const drink=id=>app.drinks.find(d=>d.id===id), orders=()=>state.orders;
+  const order=id=>orders().find(o=>o.id===id), tracked=()=>order(state.selected);
+  const held=()=>state.hand&&order(state.hand.id);
+  const active=()=>!!(dialog?.open && state && !state.paused && !document.hidden);
+  const within=(n,max)=>Number.isFinite(n)&&n>=0&&n<=max;
+  const cup=()=>({stage:'empty',flavor:null,top:null,left:0});
+  const fresh=()=>({version:2,paused:false,serial:0,arrival:3,selected:null,orders:[],pose:roomApi.spawn(),hand:null,job:null});
+  function valid(s){
+    if(!app||!s||![1,2].includes(s.version)||typeof s.paused!=='boolean'||!Number.isSafeInteger(s.serial)||s.serial<0||
+       !within(s.arrival,3)||!Array.isArray(s.orders)||s.orders.length>3)return false;
+    const ids=new Set(),seats=new Set();
+    for(const o of s.orders){
+      if(!o||!Number.isSafeInteger(o.id)||o.id<1||o.id>s.serial||ids.has(o.id)||!app.names.includes(o.name)||
+        !app.coats.some(c=>c.id===o.coat)||!drink(o.drink)||(o.top!==null&&!app.tops.includes(o.top))||
+        (o.dessert!==null&&!Object.hasOwn(desserts,o.dessert))||!within(o.limit,120)||o.limit<1||!within(o.left,o.limit)||
+        !(s.version===1?['none','waiting','baking','done']:['none','waiting','baking','done','given']).includes(o.side)||!within(o.bake,ovenTime))return false;
+      const c=o.cup;
+      if(!c||!stages.includes(c.stage)||(c.flavor!==null&&!drink(c.flavor))||(c.top!==null&&!app.tops.includes(c.top))||
+        !within(c.left,pourTime)||(c.stage!=='empty'&&!c.flavor))return false;
+      if(s.version===2){
+        if(!Number.isInteger(o.seat)||o.seat<0||o.seat>2||seats.has(o.seat)||typeof o.taken!=='boolean'||
+           !['unused','hand','shelf','given'].includes(o.cupAt))return false;
+        seats.add(o.seat);
+      }
       ids.add(o.id);
     }
-    return s.selected === null ? ids.size === 0 : ids.has(s.selected);
+    if(s.version===1)return s.selected===null?ids.size===0:ids.has(s.selected);
+    const selected=s.orders.find(o=>o.id===s.selected);
+    if((s.selected!==null&&!selected?.taken)||!roomApi.bounded(s.pose))return false;
+    const h=s.hand,job=s.job,heldOrder=h&&s.orders.find(o=>o.id===h.id);
+    if(h!==null && (!heldOrder?.taken || !['cup','dessert'].includes(h.kind) ||
+       (h.kind==='cup'?heldOrder.cupAt!=='hand':heldOrder.side!=='done')))return false;
+    if(s.orders.some(o=>o.cupAt==='hand' && (h?.kind!=='cup'||o.id!==h.id)))return false;
+    if(job!==null){
+      const o=job&&s.orders.find(o=>o.id===job.id);
+      if(!o?.taken || !(job.kind==='pour'&&h?.id===o.id&&h.kind==='cup'&&o.cup.stage==='pouring'||
+        job.kind==='lid'&&h?.id===o.id&&h.kind==='cup'&&o.cup.stage==='sealing'||
+        job.kind==='dessert'&&!h&&o.side==='baking'))return false;
+    }
+    return true;
   }
-  function arrive() {
-    const available = menu(), tops = app.tops.filter(id => app.state.unlocked.includes(id));
-    const used = new Set(state.orders.map(o => o.drink));
-    const choices = available.filter(d => !used.has(d.id));
-    const recipe = state.serial === 0 ? available[0] : pick(choices.length ? choices : available);
-    const id = ++state.serial;
-    const dessert = app.state.level >= 3 && (id % 2 === 0 || !state.orders.length)
-      ? pick(Object.keys(desserts)) : null;
-    const limit = (app.state.level === 1 ? 48 : 40) + (dessert ? 6 : 0);
-    const cats = app.coats.filter(c => !c.rare || (app.state.level >= 3 && Math.random() < .15));
-    const usedNames = new Set(state.orders.map(o => o.name));
-    const o = {id, name:pick(app.names.filter(n => !usedNames.has(n))), coat:pick(cats).id, drink:recipe.id,
-      top:tops.length && id % 3 !== 0 ? pick(tops) : null, dessert, limit, left:limit,
-      side:dessert ? 'waiting' : 'none', bake:0, cup:cup()};
-    state.orders.push(o);
-    newestId=id;
-    if (state.selected === null) state.selected = id;
-    state.arrival = arrivalTime;
+  function migrate(s){
+    if(s.version===2)return s;
+    s.orders.forEach((o,index)=>Object.assign(o,{seat:index,taken:true,cupAt:o.cup.stage==='empty'?'unused':'shelf'}));
+    return Object.assign(s,{version:2,pose:roomApi.spawn(),job:null,hand:null});
   }
-  function remove(id) {
-    state.orders = state.orders.filter(o => o.id !== id);
-    if (state.selected === id) state.selected = state.orders[0]?.id ?? null;
-    state.arrival = Math.min(state.arrival,state.orders.length ? 1.8 : 1.1);
+  function arrive(){
+    const drinks=app.drinks.filter(d=>app.state.unlocked.includes(d.id)),tops=app.tops.filter(t=>app.state.unlocked.includes(t));
+    const different=drinks.filter(d=>!orders().some(o=>o.drink===d.id));
+    const recipe=!state.serial?drinks[0]:pick(different.length?different:drinks);
+    const id=++state.serial,seat=[0,1,2].find(n=>!orders().some(o=>o.seat===n));
+    const dessert=app.state.level>=3&&(id%2===0||!orders().length)?pick(Object.keys(desserts)):null;
+    const limit=(app.state.level===1?55:48)+(dessert?12:0);
+    const cats=app.coats.filter(c=>!c.rare||(app.state.level>=3&&Math.random()<.15));
+    orders().push({id,seat,taken:false,name:pick(app.names.filter(n=>!orders().some(o=>o.name===n))),coat:pick(cats).id,
+      drink:recipe.id,top:tops.length && id%3!==0?pick(tops):null,dessert,limit,left:limit,
+      side:dessert?'waiting':'none',bake:0,cup:cup(),cupAt:'unused'});
+    state.arrival=arrivalTime;
   }
-  function advance(dt) {
-    let changed = false;
-    for (const o of [...state.orders]) {
-      o.left = Math.max(0,o.left-dt);
-      if (o.left === 0) {
-        remove(o.id);
-        app.state.combo = 0;
-        message = o.name + ' headed home.';
-        changed = true;
-        continue;
-      }
-      if (o.cup.stage === 'pouring' || o.cup.stage === 'sealing') {
-        o.cup.left = Math.max(0,o.cup.left-dt);
-        if (o.cup.left === 0) {
-          o.cup.stage = o.cup.stage === 'pouring' ? 'filled' : 'ready';
-          changed = true;
-        }
-      }
-      if (o.side === 'baking') {
-        o.bake = Math.max(0,o.bake-dt);
-        if (o.bake === 0) { o.side = 'done'; changed = true; }
+  function remove(id){
+    state.orders=orders().filter(o=>o.id!==id);
+    if(state.selected===id)state.selected=orders().find(o=>o.taken)?.id??null;
+    if(state.hand?.id===id)state.hand=null;
+    if(state.job?.id===id)state.job=null;
+    state.arrival=Math.min(state.arrival,orders().length?1.8:1.1);
+  }
+  function say(text){notice=text;noticeUntil=performance.now()+3200;}
+  function advance(dt){
+    let changed=false;
+    for(const o of [...orders()]){
+      o.left=Math.max(0,o.left-dt);
+      if(!o.left){remove(o.id);app.state.combo=0;say(o.name+' headed home.');changed=true;}
+    }
+    const job=state.job;
+    if(job){
+      const o=order(job.id),dessert=job.kind==='dessert';
+      const left=Math.max(0,(dessert?o.bake:o.cup.left)-dt);
+      if(dessert)o.bake=left;else o.cup.left=left;
+      if(!left){
+        if(dessert){o.side='done';state.hand={id:o.id,kind:'dessert'};}
+        else o.cup.stage=job.kind==='pour'?'filled':'ready';
+        state.job=null;changed=true;
+        say(dessert?'Dessert boxed.':job.kind==='pour'?'Your cup is filled.':'Lid sealed.');
       }
     }
-    if (state.orders.length < 3) {
-      state.arrival = Math.max(0,state.arrival-dt);
-      if (!state.arrival) { arrive(); changed = true; }
+    if(orders().length<3){
+      state.arrival=Math.max(0,state.arrival-dt);
+      if(!state.arrival){arrive();changed=true;}
     }
     return changed;
   }
-  function tick() {
-    const now = performance.now(), dt = (now-stamp)/1000;
-    stamp = now;
-    if (!dialog.open || document.hidden || state.paused) return;
-    if (advance(dt)) { render(); app.save(); }
-    meters();
-    if (now >= nextSave) { app.save(); nextSave = now+1000; }
-  }
-  function hint(o) {
-    if (!o) return 'A guest is on the way.';
-    const c = o.cup;
-    if (c.stage === 'empty') return 'Tap the ' + drink(o.drink).name + ' dispenser.';
-    if (c.stage === 'pouring') return 'Pouring automatically. You can start another ticket.';
-    if (c.stage === 'filled' && c.top !== o.top) return 'Tap ' + app.ingredients[o.top].name + ' to add a scoop.';
-    if (c.stage === 'filled') return 'Tap the lid press to seal this cup.';
-    if (c.stage === 'sealing') return 'The lid press is sealing this cup.';
-    if (o.dessert && o.side !== 'done') return o.side === 'baking' ? 'Dessert is cooking. Your drink is ready.' : 'Tap the dessert tray to prepare ' + desserts[o.dessert] + '.';
-    return 'Hand the finished order to ' + o.name + '.';
-  }
-  function stageName(o) {
-    return {empty:'Empty cup',pouring:'Pouring',filled:o.cup.top ? 'Boba added' : 'Filled cup',sealing:'Sealing',ready:'Sealed cup'}[o.cup.stage];
-  }
-  function color(id) {
-    if (id === 'classic') return '#c88a60';
-    if (id === 'jasminemt') return '#9cb773';
-    if (id === 'bsmilk') return '#b37256';
-    return app.ingredients[drink(id).ings[0]].c;
-  }
-  function attrs(action,id) {
-    return ' type="button" data-service="'+ action +'"' + (id == null ? '' : ' data-id="'+ id +'"');
-  }
-  function art(o) {
-    const c = o.cup, hasTea = !!c.flavor;
-    return '<span aria-hidden="true" class="bs-cup-art '+ (c.top?'has-pearls ':'') + (c.stage==='ready'||c.stage==='sealing'?'has-lid':'')+
-      '" style="--tea:'+ color(c.flavor || o.drink) +'"><i class="bs-straw"></i><i class="bs-lid"></i><i class="bs-glass"><i class="bs-liquid" data-liquid="'+o.id+
-      '" style="height:'+(hasTea && c.stage!=='pouring'?88:0)+'%"></i><i class="bs-face">•ᴗ•</i><i class="bs-pearls"></i></i></span>';
-  }
-  function ticket(o) {
-    return '<button'+attrs('ticket',o.id)+' class="bs-ticket" aria-pressed="'+(state.selected===o.id)+'"><span class="bs-ticket-head"><b>#'+
-      String(o.id).padStart(2,'0')+' · '+o.name+'</b><span data-time="'+o.id+'"></span></span><strong>'+drink(o.drink).name+
-      '</strong><span class="bs-extras">'+(o.top ? app.ingredients[o.top].name : 'No topping')+(o.dessert?' + '+desserts[o.dessert]:'')+
-      '</span><i class="bs-meter"><i data-patience="'+o.id+'"></i></i></button>';
-  }
-  function counterCat(o) {
-    return '<button'+attrs('ticket',o.id)+' class="bs-cat'+(o.id===newestId?' bs-arriving':'')+'" aria-label="Select '+o.name+'"><span class="bs-cat-art">'+
-      app.portrait(o.coat)+'</span><b>'+o.name+'</b></button>';
-  }
-  function tray(o) {
-    return '<button'+attrs('ticket',o.id)+' class="bs-tray" aria-pressed="'+(state.selected===o.id)+'">'+art(o)+
-      '<span><b>#'+String(o.id).padStart(2,'0')+' · '+o.name+'</b><small>'+stageName(o)+'</small></span></button>';
-  }
-  function spout(d,o) {
-    const busy = state.orders.find(order => order.cup.stage==='pouring' && order.cup.flavor===d.id);
-    const disabled = !o || o.cup.stage !== 'empty' || !!busy;
-    return '<button'+attrs('pour',d.id)+' class="bs-spout" style="--tea:'+color(d.id)+'" '+(o?.drink===d.id && !disabled?'data-requested ':'')+(disabled?'disabled':'')+
-      '><i aria-hidden="true" class="bs-dispenser"><i></i></i><strong>'+d.name+'</strong><small>'+
-      (busy?'Pouring <span data-machine="'+busy.id+'"></span>':disabled?'Select an empty cup':'Tap to pour · 3.5s')+'</small></button>';
-  }
-  function machine(action,id,title,detail,icon,enabled) {
-    return '<button'+attrs(action,id)+' class="bs-tool" '+(enabled?'':'disabled')+'><i aria-hidden="true" class="bs-tool-icon bs-'+icon+
-      '"></i><span><strong>'+title+'</strong><small>'+detail+'</small></span></button>';
-  }
-  function render() {
-    const previous = document.activeElement?.closest('[data-service]');
-    const lastAction = previous?.dataset.service, lastId = previous?.dataset.id;
-    const o = selected();
-    const wanted = new Set(state.orders.map(order => order.drink));
-    const available=menu();
-    for (const d of available) { if (wanted.size>=3) break; wanted.add(d.id); }
-    const show=available.filter(d=>wanted.has(d.id));
-    const top = o?.top || app.tops.find(id => app.state.unlocked.includes(id));
-    const ready = o?.cup.stage === 'ready' && (!o.dessert || o.side==='done');
-    by('.bs-tickets').innerHTML = state.orders.map(ticket).join('') || '<span class="bs-empty">Next guest arriving…</span>';
-    by('.bs-cats').innerHTML = state.orders.map(counterCat).join('');
-    newestId=null;
-    by('.bs-trays').innerHTML = state.orders.map(tray).join('') || '<span class="bs-empty">Clean counter</span>';
-    by('.bs-spouts').innerHTML = show.map(d=>spout(d,o)).join('');
-    const press = state.orders.find(a=>a.cup.stage==='sealing');
-    const oven = state.orders.find(a=>a.side==='baking');
-    let tools = machine('top',top,top?app.ingredients[top].name:'Boba scoop',o?.cup.top ? 'Added to cup' : 'Tap to scoop','bowl',
-      !!top && o?.cup.stage==='filled' && !!o.top && !o.cup.top);
-    tools += machine('lid',null,'Lid press',press?'Sealing…':'Tap to seal','press',
-      o?.cup.stage==='filled' && o.cup.top===o.top && !press);
-    if (app.state.level >= 3) tools += machine('dessert',null,o?.dessert?desserts[o.dessert]:'Dessert tray',
-      oven?'Cooking…':o?.side==='done'?'Ready on tray':'Tap to prepare','sweet',o?.side==='waiting' && !oven);
-    by('.bs-tools').innerHTML = tools;
-    by('.bs-hint').textContent = hint(o);
-    by('.bs-hand').textContent = o?'Serve '+o.name:'Serve guest';
-    by('.bs-hand').disabled = !ready;
-    by('.bs-money').textContent = '$'+Math.floor(app.state.money);
-    by('.bs-level').textContent = 'Level '+app.state.level;
-    by('.bs-cups-title').textContent = o ? 'Cup #'+String(o.id).padStart(2,'0')+' · '+o.name : 'Cup counter';
-    by('.bs-pause').textContent = state.paused ? '▶ Resume' : 'Ⅱ Pause';
-    by('.bs-pause').setAttribute('aria-pressed',String(state.paused));
-    by('.bs-work').inert = state.paused;
-    by('.bs-paused').hidden = !state.paused;
-    by('.bs-msg').textContent = message;
-    meters();
-    if (lastAction && (!previous || !dialog.contains(previous))) {
-      const id = lastId==null?'':'[data-id="'+lastId+'"]';
-      const target = by('[data-service="'+lastAction+'"]'+id+':not(:disabled)') || by('.bs-ticket[aria-pressed="true"]');
-      target?.focus({preventScroll:true});
+  function quest(){
+    if(state.job){
+      const o=order(state.job.id);
+      return state.job.kind==='pour'?['tea'+o.seat,'Filling the cup']:state.job.kind==='lid'?['lid','Pressing the lid']:['dessert','Preparing '+desserts[o.dessert]];
     }
-  }
-  function meters() {
-    for (const o of state.orders) {
-      const fill = by('[data-patience="'+o.id+'"]'), time = by('[data-time="'+o.id+'"]');
-      if (fill) fill.style.setProperty('--left',String(o.left/o.limit));
-      if (time) time.textContent = Math.ceil(o.left)+'s';
-      const liquid=by('[data-liquid="'+o.id+'"]'), machine=by('[data-machine="'+o.id+'"]');
-      if (o.cup.stage==='pouring' && liquid) liquid.style.height = (88*(1-o.cup.left/pourTime))+'%';
-      if (machine) machine.textContent=Math.ceil(o.cup.left)+'s';
+    const h=held(),o=h||tracked();
+    if(h && state.hand.kind==='dessert')return ['cat'+h.seat,'Deliver '+desserts[h.dessert]+' to '+h.name];
+    if(h){
+      if(['empty','pouring'].includes(h.cup.stage))return ['tea'+h.seat,'Brew '+drink(h.drink).name];
+      if(h.cup.stage==='filled'&&h.cup.top!==h.top)return ['top','Scoop '+app.ingredients[h.top].name];
+      if(h.cup.stage!=='ready')return ['lid','Seal the cup'];
+      return ['cat'+h.seat,'Give '+h.name+' the sealed drink'];
     }
-    const warning=document.getElementById('saveWarning');
-    by('.bs-save-warning').textContent = warning.hidden?'':warning.textContent;
+    if(o && o.cupAt!=='given')return ['rack',o.cupAt==='shelf'?'Pick up '+o.name+'’s saved cup':'Pick up a cup for '+o.name];
+    if(o?.dessert && o.side!=='given')return ['dessert','Prepare '+desserts[o.dessert]];
+    const guest=orders().find(a=>!a.taken);
+    return guest?['cat'+guest.seat,'Ask '+guest.name+' for their order']:[null,'The next guest is on the way'];
   }
-  function tap(action,id) {
-    tick();
-    if (action === 'close') { dialog.close(); return; }
-    if (action === 'pause') {
-      state.paused=!state.paused; stamp=performance.now(); app.save(); render(); return;
+  function stationName(id){
+    if(!id)return '';
+    if(id.startsWith('cat'))return orders().find(o=>'cat'+o.seat===id)?.name||'Guest';
+    if(id.startsWith('tea'))return 'Brewer '+(Number(id.slice(3))+1);
+    return {rack:'Cup shelf',top:'Boba bowl',lid:'Lid press',dessert:'Bakery'}[id];
+  }
+  const exists=id=>id.startsWith('cat')?orders().some(o=>'cat'+o.seat===id):id!=='dessert'||app.state.level>=3;
+  function action(at){
+    if(!at)return '';
+    if(state.job)return '';
+    const h=held(),o=tracked();
+    if(at.startsWith('cat')){
+      const guest=orders().find(a=>'cat'+a.seat===at);
+      if(!guest)return '';
+      if(!guest.taken)return 'Ask '+guest.name;
+      if(h?.id===guest.id && (state.hand.kind==='dessert'||h.cup.stage==='ready'))return 'Hand to '+guest.name;
+      return h?'':'Track '+guest.name+'’s order';
     }
-    if (state.paused) return;
-    if (action==='ticket') {
-      if (state.orders.some(o=>o.id===Number(id))) state.selected=Number(id);
-      message=''; app.save(); render(); return;
+    if(at==='rack'){
+      if(h && state.hand.kind==='cup')return 'Set cup on shelf';
+      if(!h&&o&&o.cupAt!=='given')return o.cupAt==='shelf'?'Pick up saved cup':'Pick up empty cup';
     }
-    const o=selected();
-    if (!o) return;
-    const c=o.cup;
-    if (action==='pour' && c.stage==='empty' && !state.orders.some(a=>a.cup.stage==='pouring' && a.cup.flavor===id)) {
-      if (o.drink!==id) { message=o.name+' asked for '+drink(o.drink).name+'.'; render(); return; }
-      Object.assign(c,{stage:'pouring',flavor:id,left:pourTime});
-    } else if (action==='top' && c.stage==='filled' && id===o.top && !c.top) {
-      c.top=id;
-    } else if (action==='lid' && c.stage==='filled' && c.top===o.top && !state.orders.some(a=>a.cup.stage==='sealing')) {
-      c.stage='sealing'; c.left=lidTime;
-    } else if (action==='dessert' && o.side==='waiting' && !state.orders.some(a=>a.side==='baking')) {
-      o.side='baking'; o.bake=ovenTime;
-    } else if (action==='serve' && c.stage==='ready' && (!o.dessert || o.side==='done')) {
-      remove(o.id);
-      const reward=app.reward(o);
-      message=o.name+' loved it! +$'+reward;
-      app.save(); render(); return;
-    } else return;
-    message=''; app.save(); render();
+    if(at==='dessert'&&!h&&o?.dessert&&!['none','given'].includes(o.side))return o.side==='done'?'Pick up dessert':'Make '+desserts[o.dessert];
+    if(!h||state.hand.kind!=='cup')return '';
+    if(at==='tea'+h.seat && ['empty','pouring'].includes(h.cup.stage))return h.cup.stage==='pouring'?'Continue brewing':'Start '+drink(h.drink).name;
+    if(at==='top' && h.cup.stage==='filled' && h.top && !h.cup.top)return 'Scoop '+app.ingredients[h.top].name;
+    if(at==='lid' && ['filled','sealing'].includes(h.cup.stage) && h.top===h.cup.top)return 'Press lid';
+    return '';
   }
-  function open() {
-    if (dialog.open) return;
-    app.enter();
-    state=app.state.cafeService;
-    if (!valid(state)) state=app.state.cafeService=newState();
-    if (!state.orders.length && !state.paused) arrive();
-    dialog.showModal(); stamp=performance.now(); nextSave=stamp+1000;
-    message=''; render(); app.save();
-    (state.paused ? by('.bs-pause') : by('.bs-ticket[aria-pressed="true"]') || by('.bs-pause')).focus({preventScroll:true});
-    clearInterval(interval); interval=setInterval(tick,100);
+  function interact(){
+    if(!active()||state.job)return;
+    const at=roomApi.nearest(state.pose,exists);
+    if(!action(at))return;
+    const h=held(),o=tracked();
+    if(at.startsWith('cat')){
+      const g=orders().find(a=>'cat'+a.seat===at);
+      if(!g.taken){g.taken=true;state.selected=g.id;say(g.name+'’s order is on the rail.');}
+      else if(h?.id===g.id){
+        if(state.hand.kind==='dessert')g.side='given';else g.cupAt='given';
+        state.hand=null;
+        if(g.cupAt==='given'&&(!g.dessert||g.side==='given')){
+          remove(g.id);const pay=app.reward(g);say(g.name+' loved it! +$'+pay);
+        }else{state.selected=g.id;say(g.name+' received the '+(g.cupAt==='given'?'drink.':'dessert.'));}
+      }else{state.selected=g.id;say('Tracking '+g.name+'’s order.');}
+    }else if(at==='rack'){
+      if(h){h.cupAt='shelf';state.hand=null;say('Cup parked on '+h.name+'’s shelf.');}
+      else{o.cupAt='hand';state.hand={kind:'cup',id:o.id};}
+    }else if(at==='dessert'){
+      if(o.side==='done')state.hand={kind:'dessert',id:o.id};
+      else{if(o.side==='waiting')o.bake=ovenTime;o.side='baking';state.job={id:o.id,kind:'dessert'};}
+    }else if(at==='top')h.cup.top=h.top;
+    else if(at==='lid'){if(h.cup.stage!=='sealing')h.cup.left=lidTime;h.cup.stage='sealing';state.job={id:h.id,kind:'lid'};}
+    else{if(h.cup.stage!=='pouring')h.cup.left=pourTime;h.cup.flavor=h.drink;h.cup.stage='pouring';state.job={id:h.id,kind:'pour'};}
+    app.save();render();
   }
-  function init(config) {
-    app=config; dialog=document.getElementById('bobaService');
-    dialog.innerHTML='<header class="bs-head"><div class="bs-brand"><span aria-hidden="true">☾</span><div><small>Midnight Paws</small><h1>Boba café</h1></div></div><div class="bs-head-actions"><div class="bs-stats"><b class="bs-money"></b><span class="bs-level"></span></div><button class="bs-pause" data-service="pause" type="button">Ⅱ Pause</button><button class="bs-exit" data-service="close" type="button" aria-label="Back to main menu">Menu</button></div></header>'+
-    '<main class="bs-work"><div class="bs-scene"><section class="bs-board"><h2>Order rail</h2><div class="bs-tickets"></div></section><div class="bs-window"><i class="bs-moon" aria-hidden="true">☾</i><div class="bs-cats"></div></div></div>'+
-    '<section class="bs-counter"><div class="bs-section-title"><h2>Prep counter</h2><span class="bs-cups-title"></span></div><div class="bs-trays"></div><div class="bs-kitchen"><section><h3>Tea dispensers</h3><div class="bs-spouts"></div></section><section><h3>Finishing station</h3><div class="bs-tools"></div></section></div>'+
-    '<div class="bs-serve"><div><p class="bs-hint"></p><p class="bs-msg" role="status"></p></div><button class="bs-hand" type="button" data-service="serve"></button></div></section></main>'+
-    '<aside class="bs-paused" hidden><div><span aria-hidden="true">☾</span><h2>Café paused</h2><p>Your cats and cups will wait.</p><button type="button" data-service="pause">Resume shift</button></div></aside><div class="bs-save-warning" role="alert"></div>';
-    dialog.addEventListener('click',e=>{const b=e.target.closest('[data-service]');if(b && !b.disabled)tap(b.dataset.service,b.dataset.id);});
-    dialog.addEventListener('cancel',e=>{e.preventDefault();tap('pause');});
-    dialog.addEventListener('close',()=>{clearInterval(interval);app.save();app.exit();});
-    document.addEventListener('visibilitychange',()=>{if(!dialog.open)return;stamp=performance.now();if(document.hidden)app.save();});
-    window.addEventListener('pagehide',()=>{if(dialog.open){tick();app.save();}});
+  function color(id){return id==='classic'?'#c88a60':id==='jasminemt'?'#a4bd80':id==='bsmilk'?'#ac7055':app.ingredients[drink(id).ings[0]].c;}
+  function objects(){
+    const items={rack:{label:'Cup shelf'},top:{label:'Boba bowl'},lid:{label:'Lid press',running:state.job?.kind==='lid'}};
+    if(app.state.level>=3)items.dessert={label:'Bakery',running:state.job?.kind==='dessert'};
+    for(let n=0;n<3;n++){
+      const o=orders().find(a=>a.seat===n),recipe=o?.taken?drink(o.drink):null;
+      items['tea'+n]={label:recipe?recipe.name:'Brewer '+(n+1),color:recipe?color(recipe.id):['#ce9974','#9fba87','#ba8068'][n],running:state.job?.kind==='pour'&&state.job.id===o?.id};
+      if(o)items['cat'+n]={label:o.name,coat:o.coat,taken:o.taken};
+    }
+    return items;
+  }
+  function ticket(o){
+    return '<button type="button" class="bs-ticket" data-service="track" data-id="'+o.id+'" aria-pressed="'+(state.selected===o.id)+'"><span><b>#'+String(o.id).padStart(2,'0')+' · '+o.name+'</b><i data-time="'+o.id+'"></i></span><strong>'+drink(o.drink).name+'</strong><small>'+(o.top?app.ingredients[o.top].name:'No topping')+(o.dessert?' + '+desserts[o.dessert]:'')+'</small><i class="bs-meter"><i data-patience="'+o.id+'"></i></i></button>';
+  }
+  function render(){
+    const previous=document.activeElement?.dataset.id,taken=orders().filter(o=>o.taken);
+    by('.bs-tickets').innerHTML=taken.length?taken.map(ticket).join(''):'<span class="bw-rail-empty">Walk up to a cat and ask for an order.</span>';
+    if(previous)by('[data-service="track"][data-id="'+Number(previous)+'"]')?.focus({preventScroll:true});
+    by('.bs-money').textContent='$'+Math.floor(app.state.money);by('.bs-level').textContent='Level '+app.state.level;
+    by('.bs-pause').textContent=state.paused?'▶ Resume':'Ⅱ Pause';by('.bs-pause').setAttribute('aria-pressed',String(state.paused));
+    by('.bs-work').inert=state.paused;by('.bs-paused').hidden=!state.paused;
+    const h=held(),hand=by('.bw-hand');
+    hand.hidden=!h;
+    if(h){const dessert=state.hand.kind==='dessert';
+      hand.className='bw-hand '+(dessert?'bw-h-dessert':h.cup.stage==='ready'?'bw-h-cup bw-sealed':'bw-h-cup')+(h.cup.top?' bw-topped':'');
+      hand.style.setProperty('--brew',h.cup.flavor?color(h.cup.flavor):'#e3cbb943');hand.querySelector('b').textContent=h.name+' · '+(dessert?desserts[h.dessert]:h.cup.stage==='ready'?'Sealed cup':h.cup.flavor?drink(h.cup.flavor).name:'Empty cup');}
+    room.paint(objects());readout='';markers();
+  }
+  function markers(){
+    const at=roomApi.nearest(state.pose,exists),[to,title]=quest(),dir=roomApi.direction(state.pose,to),cmd=action(at);
+    const job=state.job,working=job&&order(job.id),left=job&&(job.kind==='dessert'?working.bake:working.cup.left);
+    let location='';
+    if(dir)location=Math.abs(dir.angle)>.48?(Math.abs(dir.angle)>2.45?'Turn around':dir.angle>0?'Turn right':'Turn left'):
+      dir.distance>1.62?'Walk forward':'Within reach';
+    const status=performance.now()<noticeUntil?notice:'';
+    const key=[at,to,title,cmd,location,dir?.distance.toFixed(1),job&&Math.ceil(left*10),status,state.paused].join('|');
+    if(readout!==key){
+      readout=key;const button=by('.bw-use');
+      button.textContent=job?'Working…':cmd||'Interact';button.disabled=!cmd||!!job||state.paused;
+      button.dataset.near=at||'';by('.bw-step').textContent=title;
+      by('.bw-way').textContent=job?'Stay at the machine · '+left.toFixed(1)+'s':(dir?location+' · '+dir.distance.toFixed(1)+' m':'');
+      by('.bw-job').hidden=!job;
+      if(job){const duration=job.kind==='dessert'?ovenTime:job.kind==='lid'?lidTime:pourTime;by('.bw-job i').style.width=(100*(1-left/duration))+'%';}
+      by('.bs-msg').textContent=status;
+    }
+    const p=state.pose, map=by('.bw-map'),dot=by('.bw-player'),goal=by('.bw-dest');
+    dot.style.left=((p.x+4.65)/9.3*100)+'%';dot.style.top=((p.z+3.35)/6.7*100)+'%';dot.style.transform='translate(-50%,-50%) rotate('+p.yaw+'rad)';
+    const dst=roomApi.spot(to);goal.hidden=!dst;
+    if(dst){goal.style.left=((dst.x+4.65)/9.3*100)+'%';goal.style.top=((dst.z+3.35)/6.7*100)+'%';}
+    map.setAttribute('aria-label','Floor map'+(to?', destination '+stationName(to):''));
+  }
+  function heartbeat(now){
+    if(!dialog.open)return;
+    const dt=Math.min(.25,Math.max(0,(now-last)/1000));last=now;
+    if(active()){
+      room.frame(dt);
+      if(advance(dt)){app.save();render();}
+      markers();
+      for(const o of orders()){
+        const meter=by('[data-patience="'+o.id+'"]'),time=by('[data-time="'+o.id+'"]');
+        if(meter)meter.style.transform='scaleX('+o.left/o.limit+')';if(time)time.textContent=Math.ceil(o.left)+'s';
+      }
+      if(now>=saveDue){app.save();saveDue=now+1000;const w=document.getElementById('saveWarning');by('.bs-save-warning').textContent=w.hidden?'':w.textContent;}
+    }
+    frameId=requestAnimationFrame(heartbeat);
+  }
+  function pause(){state.paused=!state.paused;room.clear();last=performance.now();app.save();render();}
+  function open(){
+    if(dialog.open)return;app.enter();state=app.state.cafeService;
+    state=app.state.cafeService=valid(state)?migrate(state):fresh();if(!orders().length&&!state.paused)arrive();
+    dialog.showModal();room.clear();room.resize();room.frame(0);notice='';noticeUntil=0;render();app.save();by('.bw-view').focus({preventScroll:true});
+    last=performance.now();saveDue=last+1000;cancelAnimationFrame(frameId);frameId=requestAnimationFrame(heartbeat);
+  }
+  function init(config){
+    app=config;dialog=document.getElementById('bobaService');
+    dialog.innerHTML='<header class="bs-head"><div class="bs-brand"><span aria-hidden="true">☾</span><div><small>Midnight Paws</small><h1>Boba café</h1></div></div><div class="bs-head-actions"><div class="bs-stats"><b class="bs-money"></b><span class="bs-level"></span></div><button class="bs-pause" data-service="pause" type="button"></button><button class="bs-exit" data-service="close" type="button">Menu</button></div></header>'+
+    '<main class="bs-work"><div class="bw-view" tabindex="0" aria-label="First-person café. Use W A S D to walk, drag or use left and right arrows to look, and E to interact."></div><section class="bw-rail"><h2>Order rail</h2><div class="bs-tickets"></div></section><div class="bw-map" role="img"><i class="bw-player"></i><i class="bw-dest"></i></div><i class="bw-reticle" aria-hidden="true"></i>'+
+    '<div class="bw-hand" hidden><div class="bw-held-art"><i></i><i></i></div><b></b></div><div class="bw-controls"><div class="bw-joystick" aria-label="Movement stick"><i></i></div><div class="bw-guide"><strong class="bw-step"></strong><small class="bw-way"></small><i class="bw-job" hidden><i></i></i><small class="bs-msg" role="status"></small></div><button class="bw-use" type="button" data-service="use"></button></div>'+
+    '<div class="bw-legend"><span class="bw-desktop-keys">WASD walk · Drag / ← → look · E interact</span><span class="bw-mobile-keys">Move with the stick · Drag to look</span><span class="bw-turns"><button type="button" data-service="left" aria-label="Turn left">↶</button><button type="button" data-service="right" aria-label="Turn right">↷</button></span></div></main>'+
+    '<aside class="bs-paused" hidden><div><span>☾</span><h2>Café paused</h2><p>Your cats and machines will wait.</p><button type="button" data-service="pause">Resume shift</button></div></aside><div class="bs-save-warning" role="alert"></div>';
+    room=roomApi.create(by('.bw-view'),{state:()=>state,running:active,portrait:app.portrait,joystick:by('.bw-joystick')});
+    let touchUseAt=-Infinity;
+    by('.bw-use').addEventListener('pointerdown',e=>{
+      if(e.pointerType!=='touch'||e.currentTarget.disabled)return;
+      e.preventDefault();touchUseAt=performance.now();interact();
+    });
+    dialog.addEventListener('click',e=>{
+      const b=e.target.closest('[data-service]');if(!b||b.disabled)return;
+      const id=b.dataset.service;
+      if(id==='pause')pause();else if(id==='close'){app.save();dialog.close();}
+      else if(active()){
+        if(id==='use'){if(!e.detail||performance.now()-touchUseAt>650)interact();}
+        else if(id==='track'&&order(Number(b.dataset.id))?.taken){state.selected=Number(b.dataset.id);app.save();render();}
+        else if(id==='left'||id==='right'){room.turn(id==='left'?-Math.PI/8:Math.PI/8);room.frame(0);markers();}
+      }
+    });
+    window.addEventListener('keydown',e=>{
+      if(!dialog.open||e.repeat||e.altKey||e.ctrlKey||e.metaKey||e.target.closest('input,textarea,[contenteditable=true]'))return;
+      if(e.code==='KeyE'){e.preventDefault();interact();}else if(e.code==='KeyP'){e.preventDefault();pause();}
+    });
+    dialog.addEventListener('cancel',e=>{e.preventDefault();pause();});
+    dialog.addEventListener('close',()=>{cancelAnimationFrame(frameId);room.clear();app.save();app.exit();});
+    document.addEventListener('visibilitychange',()=>{if(dialog.open){room.clear();last=performance.now();if(document.hidden)app.save();}});
+    window.addEventListener('pagehide',()=>{if(dialog.open)app.save();});
   }
   return {init,open,valid};
 })();

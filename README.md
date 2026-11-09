@@ -6,7 +6,9 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=6). A cat arrives as soon as you open the counter. Select a ticket, tap its tea dispenser, add the requested topping, use the lid press and serve. Switch to a second ticket while the first drink pours. At level 3, some cats also order a dessert. **Pause** freezes every guest and machine.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=7). Walk up to a cat and ask for their order. Pick up one cup, carry it to the marked brewer, wait as it fills, add the requested topping, seal the cup, and hand it to the same cat. At level 3, some guests also order a dessert from the bakery. **Pause** freezes guests and machines.
+
+Use **WASD** to walk, drag or press the left and right arrows to turn, and press **E** to interact within reach. On touchscreens, move with the stick, drag the room to look, and use the nearby action button. Select a ticket to track its guest. Park a cup on the shelf to free your hand.
 
 Your tips, XP, unlocks, tickets and unfinished drinks save automatically in this browser. Open the game again on the same browser and device to continue. For a different device, use **Menu → Save backups → Download save**, then **Restore from file** on the other device. Clearing site data or ending a private browsing session can erase that browser’s progress.
 
@@ -48,7 +50,7 @@ The painted counter works with mouse, keyboard and touch. **Switch to first pers
 
 ## Features
 
-- **Orders:** up to three cats wait at the counter with persistent tickets and separate cups. Start several flavors in parallel, watch each guest’s patience, then seal and serve.
+- **Orders:** up to three cats wait at the counter. Ask for each ticket, prepare and carry one item at a time, and return it to the matching guest.
 - **First-person 3D counter:** stations run left to right: cups, ice, tea, milk, syrup, powder, toppings, shaker, serve. Dispenser handles press, pumps push, scoops move and the shaker shakes.
 - **Procedural sounds (Web Audio):** ice clicking in a plastic cup, a tea splish, a milk pour that rises in pitch, a syrup drizzle, a powder puff, sticky boba, ice rattling in the shaker, and a sound on every button.
 - **Music:** rotating lo-fi tracks in the café and rotating jazz tunes in the shops. Day and night switch every 5 minutes, and sound settings toggle all sound, music, rain and SFX separately.

@@ -13,8 +13,9 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=6">
-<script src="cafe-service.js?v=6"></script>
+<link rel="stylesheet" href="cafe-service.css?v=7">
+<script src="cafe-room.js?v=7"></script>
+<script src="cafe-service.js?v=7"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -4093,8 +4094,8 @@ function loopShop(now){
 
 /* ================= v10: guidebook ================= */
 const GUIDE=[
- ['Café counter','<ol class="gsteps"><li><b>Pick a ticket</b> from the order rail. Each cat has its own cup.</li><li><b>Tap the tea dispenser.</b> It fills the cup in 3.5 seconds. Start another ticket while it pours.</li><li>Tap the requested topping, use the <b>lid press</b>, then <b>Serve</b> the cat.</li><li>Tap <b>Pause</b> whenever you need a break. Your orders and tips save in this browser.</li></ol>'],
- ['Desserts','<p class="gp">The dessert tray opens at <b>level 3</b>. A ticket can ask for strawberry mochi, custard taiyaki, or a matcha roll alongside the drink.</p><p class="gp">Tap the dessert while the tea pours. The oven and the lid press each handle one ticket at a time.</p>'],
+ ['Café counter','<ol class="gsteps"><li><b>Walk up to a cat</b> and ask for their order. The ticket appears on the rail.</li><li><b>Take one cup from the shelf.</b> Walk to the marked brewer and wait as it fills the cup in 3.5 seconds.</li><li>Visit the boba bowl for the requested topping, use the <b>lid press</b>, then hand the cup to the cat who ordered it.</li><li>Tap <b>Pause</b> whenever you need a break. Your orders and tips save in this browser.</li></ol>'],
+ ['Desserts','<p class="gp">The dessert tray opens at <b>level 3</b>. A ticket can ask for strawberry mochi, custard taiyaki, or a matcha roll alongside the drink.</p><p class="gp">Carry the drink to the cat, then walk to the bakery with empty hands. Stay there to prepare the dessert and return it to the same guest.</p>'],
  ['3D controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
   <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
  ['Shops',`<p class="gp">Press <span class="gk">Shop</span> and pick a store. You’ll arrive on the sidewalk, so walk in through the door.</p>
@@ -5377,7 +5378,7 @@ function openRebirth(){const n=S.rebirths||0;
    <div><h4>Resets</h4><ul class="glist"><li>Level &amp; XP</li><li>Tips (back to $0)</li><li>Unlocked drinks &amp; toppings</li></ul></div></div>
    <div class="rbbonus">✦ Rebirth ${n+1}: <b>+${(n+1)*25}% tips</b> on perfect drinks, forever</div>`;
   $('#rbGo').hidden=S.level<REBIRTH_LV;$('#rebirth').hidden=false;}
-function doRebirth(){if(S.cafeService)Object.assign(S.cafeService,{selected:null,orders:[],arrival:0,paused:false});
+function doRebirth(){if(S.cafeService){Object.assign(S.cafeService,{selected:null,orders:[],arrival:0,paused:false});if(S.cafeService.version===2){S.cafeService.hand=null;S.cafeService.job=null;}}
   S.rebirths=(S.rebirths||0)+1;S.money=0;S.level=1;S.xp=0;S.combo=0;S.unlocked=['classic','jasminemt','bsmilk','pearls'];S.fresh=[];S.freshIng=[];save();
   $('#rebirth').hidden=true;sfx('rare');confetti(90);banner(`REBIRTH ✦ ${S.rebirths}`,`+${S.rebirths*25}% tips on perfect drinks forever`,'lvl');
   try{renderHUD();renderMenus();renderBar();}catch(e){}renderMenuScreen();}
