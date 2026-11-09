@@ -1,6 +1,6 @@
 // Bump the version when changing any cached game file.
 const prefix = 'midnight-paws-boba-shell-';
-const cacheName = prefix + '1';
+const cacheName = prefix + '2';
 const home = new URL('index.html', self.registration.scope).href;
 const renderer = new URL('assets/three-r128.min.js', self.registration.scope).href;
 

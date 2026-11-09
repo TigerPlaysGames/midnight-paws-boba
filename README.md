@@ -8,7 +8,7 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 [Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/). Open the link and create your cat. On a touchscreen, use the arrow pad to walk, drag the scene to look, and tap the station prompt.
 
-Your character, tips, XP, unlocks and notebook save automatically in this browser. Return to the same address on the same browser and device to continue. An unfinished drink starts fresh. Clearing site data or ending a private browsing session can erase progress.
+Your character, tips, XP, unlocks and notebook save automatically in this browser. Return to the same address on the same browser and device to continue. Continue shift restores the waiting customer, ingredient quantities, shake progress and separate café and lab cups. Use **Save backups → Download save** to keep a portable copy. Open **Save backups → Restore from file** in another browser or on another device to continue there. Clearing site data or ending a private browsing session can erase progress.
 
 After the menu says **Ready to play offline**, you can reopen the same link without internet. The game bundles Three.js r128 and uses system fonts if Google Fonts are unavailable.
 
@@ -29,7 +29,7 @@ To run locally, serve the repository with `python -m http.server 8000` and open 
 
 ## Features
 
-- **Orders:** a cat sits at the counter and you press Take order. The order is spoken once with typing blips, and you can write it down in the notes tab. "Forgot the order" replays it for $5.
+- **Orders:** a cat sits at the counter and you press Take order. The cat speaks the order with typing blips. Open Notes for a free ingredient checklist and room for handwritten notes.
 - **First-person 3D counter:** stations run left to right: cups, ice, tea, milk, syrup, powder, toppings, shaker, serve. Dispenser handles press, pumps push, scoops move and the shaker shakes.
 - **Procedural sounds (Web Audio):** ice clicking in a plastic cup, a tea splish, a milk pour that rises in pitch, a syrup drizzle, a powder puff, sticky boba, ice rattling in the shaker, and a sound on every button.
 - **Music:** rotating lo-fi tracks in the café and rotating jazz tunes in the shops. Day and night switch every 5 minutes, and sound settings toggle all sound, music, rain and SFX separately.

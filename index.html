@@ -645,6 +645,11 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
 .shophelp .shx{border:0;background:rgba(0,0,0,.07);border-radius:50%;width:24px;height:24px;font-size:15px;line-height:1;color:var(--ink)}
 </style>
 <style>
+#orderTicket{padding:10px 14px;border-bottom:1px dashed #ab9a83;font:600 14px var(--body)}
+#ticketItems{list-style:none;padding:0;margin:5px 0;display:flex;flex-wrap:wrap;gap:4px 12px}
+#notepad textarea{min-height:45px}
+#leaveStation{display:none}
+body.walk.picking #leaveStation{display:block;margin:5px auto}
 #saveStatus{color:#e7d9ec;font:600 12px var(--body);text-align:center}
 #saveWarning{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:9999;padding:8px 16px;background:#fff0cb;color:#392740;border-radius:0 0 12px 12px;text-align:center}
 #cafePad{display:none;z-index:6;pointer-events:none}
@@ -731,7 +736,7 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
     </svg>
     <div class="counter"></div>
     <button class="btn takebtn" id="takeBtn" type="button" hidden>Take order</button>
-    <button class="btn ghost forgot" id="forgotBtn" type="button" hidden>Forgot the order · $5</button>
+    <button class="btn ghost forgot" id="forgotBtn" type="button" hidden>View order ticket</button>
     <button class="prompt3" id="prompt3" type="button" hidden></button>
     <div class="pad" id="cafePad"><button type="button" data-k="w" aria-label="Forward">▲</button><button type="button" data-k="a" aria-label="Left">◀</button><button type="button" data-k="s" aria-label="Back">▼</button><button type="button" data-k="d" aria-label="Right">▶</button></div>
     <div class="walkhint"><kbd>WASD</kbd> move · drag to look · <kbd>E</kbd> use · <kbd>1–9</kbd> pour · <kbd>Space</kbd> shake · <kbd>V</kbd> view</div>
@@ -750,6 +755,7 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
     <div class="dtabs" id="dcTabs"></div><div class="dlist" id="dcList"></div>
   </section>
   <section class="bar" aria-label="Back bar">
+    <button type="button" class="ibtn" id="leaveStation">Done · back to counter</button>
     <div class="benches" id="benches"></div>
     <div class="prep">
       <div class="next" id="next"><i></i><span id="nextTxt">Opening up…</span></div>
@@ -782,7 +788,8 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
 </aside>
 <aside class="notepad" id="notepad" aria-label="Order notepad">
   <div class="nphead"><h2>order notes</h2><button class="npbtn" id="newPage" type="button">Clear</button><button class="npbtn" id="npClose" type="button">Close</button></div>
-  <textarea id="notes" spellcheck="false" placeholder="jot the order...&#10;jasmine MT&#10;no ice&#10;+ nata"></textarea>
+  <section id="orderTicket" aria-label="Current order" hidden><b id="ticketName"></b><ul id="ticketItems"></ul></section>
+  <textarea id="notes" aria-label="Your handwritten order notes" spellcheck="false" placeholder="jot the order...&#10;jasmine MT&#10;no ice&#10;+ nata"></textarea>
 </aside>
 
 <div class="modal" id="shop" hidden><div class="card" role="dialog" aria-label="Shop">
@@ -836,13 +843,20 @@ body.walk.cafe3d .viewbtn{display:block}body.decorating .viewbtn,body.picking .v
       <button class="mbtn" id="labBtn" type="button"><b>Drink Lab</b><small>Lv 7</small></button>
       <button class="mbtn" id="meBtn" type="button"><b>My Cat</b><small></small></button>
     </div>
-    <div class="msettings"><button class="mset" id="guideBtn" type="button"><b>How to play</b></button><button class="mset" id="menuSound" type="button"><b>Sound</b></button><button class="mset" id="rebirthBtn" type="button"><b>Rebirth</b><small></small></button></div>
+    <div class="msettings"><button class="mset" id="backupBtn" type="button"><b>Save backups</b></button><button class="mset" id="guideBtn" type="button"><b>How to play</b></button><button class="mset" id="menuSound" type="button"><b>Sound</b></button><button class="mset" id="rebirthBtn" type="button"><b>Rebirth</b><small></small></button></div>
     <div class="mstats" id="mstats"></div>
     <small id="saveStatus" role="status">Progress saves in this browser</small>
   </div>
   <p class="mfoot">made by kaylyn heheh</p>
 </div>
 </div>
+<div class="modal top" id="backupPanel" hidden><div class="card" role="dialog" aria-label="Save backups">
+  <button class="close" data-close type="button" aria-label="Close">×</button>
+  <h2>Save backups</h2><p>Download your café to keep a copy or move it to another device.</p>
+  <button class="btn" type="button" id="downloadSave">Download save</button>
+  <button class="btn ghost" type="button" id="chooseSave">Restore from file</button>
+  <input id="backupFile" type="file" accept=".json,application/json" hidden><p role="status" id="backupMsg"></p>
+</div></div>
 <div class="modal" id="guide" hidden><div class="card guide" role="dialog" aria-label="How to play">
   <div class="ghead"><h2>Guidebook</h2><button class="ibtn icon" type="button" onclick="this.closest('.modal').hidden=true" aria-label="Close">×</button></div>
   <div class="dtabs" id="gTabs"></div><div class="gbody" id="gBody"></div>
@@ -1006,6 +1020,7 @@ const HELLO=['Hi hi!','Mrrp, hello!','Evening~','Meow!','Hiya, night owl!','*str
 /* ---------- Save ---------- */
 const KEY='midnight-paws-boba-v1';
 let S={money:0,unlocked:['classic','jasminemt','bsmilk','pearls'],served:0,perfect:0,combo:0,best:0,xp:0,level:1,met:[],goals:[],fresh:[],freshIng:[],lastDay:'',dayStreak:0,earned:0,creations:[],bestCatch:0,audio:{all:true,music:true,rain:true,sfx:true}};
+let checkpointShift;
 let lastSave=null, unreadableSave=false;
 function warnSave(message){
   const warning=document.getElementById('saveWarning');
@@ -1031,6 +1046,7 @@ function save(){
       warnSave('Another tab changed your café. Reload to continue from its save.');
       return;
     }
+    if(checkpointShift)checkpointShift();
     const next=JSON.stringify(S);
     if(next!==lastSave)localStorage.setItem(KEY,next);
     lastSave=next;
@@ -1471,7 +1487,7 @@ function renderAlbum(){
 
 /* ---------- Next step ---------- */
 function renderNext(){
-  if(G.mode==='lab'){const c=G.cup;let txt='Grab a cup',glow='#stack';if(c){glow=null;txt=c.shaken?'Name your drink!':c.at==='shaker'?'Mash SPACE!':canShake(c)?'Mix more, or shake':'Mix anything!';if(!c.shaken&&canShake(c)&&c.at!=='shaker')glow='#shaker';}
+  if(G.mode==='lab'){const c=G.cup;let txt='Grab a cup',glow='#stack';if(c){glow=null;txt=c.shaken?'Name your drink!':c.at==='shaker'?'Keep tapping to seal':canShake(c)?'Mix more, or shake':'Mix anything!';if(!c.shaken&&canShake(c)&&c.at!=='shaker')glow='#shaker';}
     $('#nextTxt').textContent=txt;document.querySelectorAll('.glow').forEach(e=>{if(e.id!=='noteTab')e.classList.remove('glow');});if(glow)$(glow).classList.add('glow');return;}
   const c=G.cup;let txt='Waiting for a cat…',glow=null;
   if(G.phase==='greet'){txt='Take the order';glow='#takeBtn';}
@@ -1480,7 +1496,7 @@ function renderNext(){
   else if(G.phase==='made'){
     if(!c){txt='Grab a cup';glow='#stack';}
     else if(c.shaken){txt='Serve the cat!';glow='#catZone';}
-    else if(c.at==='shaker'){txt='Mash SPACE!';glow='#shaker';}
+    else if(c.at==='shaker'){txt='Keep tapping to seal';glow='#shaker';}
     else if(liqList(c).some(i=>inCup(c,i)&&ING[i].kind!=='powder')){txt='Add more, or shake';glow='#shaker';}
     else txt='Fill it up';
   }
@@ -1495,6 +1511,7 @@ let bt;function banner(title,sub,cls){const b=$('#banner');b.className='banner '
 /* ---------- Cat flow ---------- */
 function setCatArt(mood){if(G.cat){G.cat.mood=mood;$('#catArt').innerHTML=catSVG(G.cat.coat,mood,G.cat.acc);c3Mood(mood);}}
 function spawnCat(){
+  if(G.cat)return;
   $('#catZone .catcup')?.remove();
   const drinks=DRINKS.filter(d=>has(d.id)),tops=TOPS.filter(has);
   const fresh=drinks.filter(d=>S.fresh.includes(d.id));
@@ -1515,7 +1532,7 @@ function spawnCat(){
 function orderText(o){return `${pick(HELLO)} Can I get a ${o.drink.name}, ${o.ice?'with ice':'no ice'}, ${o.topping?'with '+ING[o.topping].name.toLowerCase():'no toppings'}?`;}
 function say(text,done){
   const b=$('#bubble');b.hidden=false;clearInterval(G.typing);clearTimeout(G.hideT);
-  b.innerHTML=`<span class="who">${G.cat.name}</span>`;const span=document.createElement('span');b.appendChild(span);
+  b.innerHTML=`<span class="who">${esc(G.cat.name)}</span>`;const span=document.createElement('span');b.appendChild(span);
   let i=0,mouth=false;
   G.typing=setInterval(()=>{i++;const ch=text[i-1];span.textContent=text.slice(0,i);
     if(/[a-z0-9]/i.test(ch)&&i%2===0)sfx('blip',G.cat.voice);
@@ -1525,7 +1542,7 @@ function say(text,done){
 function takeOrder(){
   if(G.phase!=='greet')return;
   G.phase='ordering';$('#takeBtn').hidden=true;renderNext();
-  G.cat.text=orderText(G.cat.order);
+  G.cat.text=orderText(G.cat.order);save();
   say(G.cat.text,()=>{
     G.phase='made';renderNext();
     if(S.served>=2)G.hideT=setTimeout(()=>{if(G.phase==='made'){$('#bubble').hidden=true;updForgot();$('#noteTab').classList.add('glow');setTimeout(()=>$('#noteTab').classList.remove('glow'),4000);}},9000);
@@ -1534,14 +1551,14 @@ function takeOrder(){
 function catLeaves(mood,line){
   setTimeout(c3Leave,1500);
   G.phase='leaving';clearTimeout(G.hideT);setCatArt(mood);
-  const b=$('#bubble');b.hidden=false;b.innerHTML=`<span class="who">${G.cat.name}</span>${line}`;
+  const b=$('#bubble');b.hidden=false;b.innerHTML=`<span class="who">${esc(G.cat.name)}</span>${line}`;
   setTimeout(()=>{$('#catZone').classList.add('away');$('#bubble').hidden=true;$('#tag').hidden=true;$('#catZone').classList.remove('glow');},2100);
   setTimeout(()=>{G.cat=null;G.phase='empty';renderNext();setTimeout(spawnCat,G.rushLeft?700:1600);},2700);
   renderNext();
 }
 setInterval(()=>{
   if(!G.cat||!['greet','ordering','made'].includes(G.phase))return;
-  if(document.querySelector('.modal:not([hidden])')||G.mode!=='cafe'||!$('#menu').hidden||!$('#catch').hidden||!$('#designer').hidden)return;
+  if(document.hidden||SH.open||np.classList.contains('open')||document.querySelector('.modal:not([hidden])')||G.mode!=='cafe'||!$('#menu').hidden||!$('#catch').hidden||!$('#designer').hidden)return;
   G.patience-=(G.phase==='greet'?1/360:1/270)*.25;
   const p=Math.max(0,G.patience),bar=$('#patBar');
   bar.style.width=(p*100)+'%';bar.style.background=p>.5?'var(--good)':p>.25?'var(--warn)':'var(--bad)';
@@ -1550,7 +1567,7 @@ setInterval(()=>{
 },250);
 
 /* ---------- Cup actions ---------- */
-function newCup(){if(G.cup){nope('Finish this cup first');return;}G.cup={amt:{},order:[],topping:null,shaken:false,at:'dock'};G.shakeP=0;sfx('place');placeCup();$('#cup').classList.add('wobble');}
+function newCup(){if(G.cup){nope('Finish this cup first');return;}G.cup={amt:{},order:[],topping:null,shaken:false,at:'dock'};G.shakeP=0;save();sfx('place');placeCup();$('#cup').classList.add('wobble');}
 function moveCupTo(id){
   if(!G.cup)return false;
   if(!ingOpen(id)){nope(`Unlock it in the Shop · $${unlockCost(id)}`);return false;}
@@ -1576,6 +1593,9 @@ function startAction(id){
     G.pour={id,k,el,st,snd:pourSound(k),last:performance.now(),splash:0};
     requestAnimationFrame(pourTick);return;
   }
+  c.amt[id]=1;
+  if(k==='top')c.topping=id;
+  gainXP(1);
   G.busy=true;el.classList.remove('act');void el.offsetWidth;el.classList.add('act');
   const surf=surfacePx(cupEl,c);
   if(k==='ice'){sfx('ice');for(let i=0;i<4;i++)particle(fx,'cube',{left:`calc(50% + ${Math.random()*12-11}px)`,top:'0px',animationDelay:(.1+i*.16)+'s','--dy':Math.max(14,surf-8)+'px','--r':(Math.random()*90-45)+'deg'});}
@@ -1584,7 +1604,7 @@ function startAction(id){
     if(id==='foam'){sfx('top',id);for(let i=0;i<14;i++)particle(fx,'puff',{left:`calc(50% + ${Math.random()*16-8}px)`,top:(cupEl.offsetTop+4)+'px',background:'#fffaf0',animationDelay:(.3+Math.random()*.4)+'s','--dx':(Math.random()*30-15)+'px','--dy':(-Math.random()*16)+'px'});}
     else{sfx('top',id);const t=ING[id],sz=id==='minitap'||id==='redbean'?'5px':'8px';for(let i=0;i<9;i++)particle(fx,'ball',{left:`calc(50% + ${Math.random()*14-9}px)`,top:'0px',width:sz,height:sz,background:t.c,
       borderRadius:['nata','lychee','pudding','aloe','grassjelly','coffeejelly','rainbow'].includes(id)?'2px':'50%',animationDelay:(.32+i*.06)+'s','--dy':(cupEl.offsetTop+cupEl.offsetHeight*.75)+'px'});}}
-  setTimeout(()=>{c.amt[id]=1;gainXP(1);if(k==='top')c.topping=id;el.classList.remove('act');G.busy=false;refreshCup();sfx('full');markFull(el,id);$('#cup')&&$('#cup').classList.add('wobble');renderNext();},{ice:900,powder:1000,top:1100}[k]);
+  setTimeout(()=>{el.classList.remove('act');G.busy=false;refreshCup();sfx('full');markFull(el,id);$('#cup')&&$('#cup').classList.add('wobble');renderNext();},{ice:900,powder:1000,top:1100}[k]);
 }
 function pourTick(now){
   const P=G.pour;if(!P)return;const c=G.cup;
@@ -1601,7 +1621,8 @@ function pourTick(now){
 function endPour(){
   const P=G.pour;if(!P)return;G.pour=null;P.snd.stop();P.el.classList.remove('pouring');P.st.classList.remove('on');
   if(amt(G.cup,P.id)>=1){sfx('full');markFull(P.el,P.id);gainXP(1);$('#cup')&&$('#cup').classList.add('wobble');}
-  else toast('Keep holding to fill');
+  else toast('Hold again to finish pouring');
+  save();
   renderNext();
 }
 
@@ -1613,10 +1634,11 @@ function shakeOnce(){
   if(c.shaken){nope('Already sealed. Serve it!');return;}
   if(G.pour||G.busy)return;
   if(!canShake(c)){nope('Pour some tea, milk or syrup first');return;}
-  if(c.at!=='shaker'){c.at='shaker';G.shakeP=0;sfx('place');placeCup();}
-  G.shakeP=Math.min(100,G.shakeP+10);$('#ring').style.setProperty('--p',G.shakeP);sfx('shake',G.shakeP);
+  if(c.at!=='shaker'){c.at='shaker';G.shakeP=c.shakeP||0;sfx('place');placeCup();}
+  G.shakeP=Math.min(100,G.shakeP+20);c.shakeP=G.shakeP;$('#ring').style.setProperty('--p',G.shakeP);sfx('shake',G.shakeP);
   const s=$('#shaker');s.classList.remove('go');void s.offsetWidth;s.classList.add('go');
-  if(G.shakeP>=100){c.shaken=true;c.at='dock';sfx('sealed');sparkle($('#shaker'));setTimeout(()=>{placeCup();$('#cup').classList.add('wobble');},120);if(G.mode==='lab')setTimeout(openName,500);}
+  if(G.shakeP>=100){c.shaken=true;c.at='dock';sfx('sealed');sparkle($('#shaker'));placeCup();$('#cup')?.classList.add('wobble');if(G.mode==='lab')setTimeout(openName,500);}
+  save();renderNext();
 }
 function sparkle(el,col){const r=el.getBoundingClientRect();for(let i=0;i<14;i++){const s=document.createElement('i');s.className='coin';s.style.cssText=`left:${r.left+r.width/2}px;top:${r.top+r.height/2}px;width:7px;height:7px;background:${col||'#fff'};box-shadow:0 0 10px var(--mint)`;
   document.body.appendChild(s);const a=Math.random()*Math.PI*2,d=30+Math.random()*50;
@@ -1642,7 +1664,7 @@ function serve(){
   S.money+=pay;S.earned+=pay;S.served++;S.xp+=xp;
   S.fresh=S.fresh.filter(f=>f!==o.drink.id&&f!==o.topping);
   let leveled=false;while(S.xp>=xpNeed(S.level)){S.xp-=xpNeed(S.level);S.level++;leveled=true;}
-  save();const served=G.cup;G.cup=null;placeCup();G.phase='leaving';
+  const served=G.cup;G.cup=null;G.phase='leaving';placeCup();
   if(stars===3){sfx('perfect',S.combo);confetti(rare?60:34);hearts();}else if(stars===2)sfx('meh');else sfx('sad');
   popText(stars===3?(rare?'LEGENDARY!':S.combo>=3?'AMAZING!':'PERFECT!'):stars===2?'Not bad':'Oops…',stars,stars===3&&(S.combo>=2||rushM>1||rare)?[S.combo>=2?`${S.combo} in a row`:'',rushM>1?'rush x2':'',rare?'rare x3':''].filter(Boolean).join(' · '):'',stars===3?'':stars===2?'meh':'bad');
   if(pay>0)setTimeout(()=>flyCoins(pay),350);
@@ -1651,7 +1673,8 @@ function serve(){
   else if(++G.sinceRush>=6&&S.served>=5){G.sinceRush=0;G.rushLeft=3;setTimeout(()=>{sfx('rush');banner('NIGHT RUSH!','Double tips for the next 3 cats','rush');document.body.classList.add('rushing');renderHUD();},1800);}
   if(!G.rushLeft)document.body.classList.remove('rushing');
   renderHUD();if(S.combo>=2){const cc=$('#comboChip');cc.classList.remove('hot');void cc.offsetWidth;cc.classList.add('hot');}
-  if(leveled)setTimeout(levelUp,2400);
+  if(leveled)levelUp();
+  save();
   giveCup(served,()=>catLeaves('happy',line),stars);renderMenus();
 }
 function catPoint(){const z=$('#catZone');return{x:z.offsetLeft,y:z.offsetTop+z.offsetHeight*.25};}
@@ -1679,11 +1702,13 @@ function levelUp(){const bonus=5*S.level;S.money+=bonus;save();sfx('levelup');ba
 
 /* ---------- Daily gift ---------- */
 function checkDaily(){
-  const today=new Date().toDateString();if(S.lastDay===today)return;
-  const y=new Date(Date.now()-864e5).toDateString();S.dayStreak=S.lastDay===y?S.dayStreak+1:1;S.lastDay=today;save();
+  const today=new Date().toDateString();if(S.lastDay===today){if(S.giftPending){$('#giftDay').textContent=`Day ${S.dayStreak} streak`;$('#gift').hidden=false;}return;}
+  const y=new Date(Date.now()-864e5).toDateString();S.dayStreak=S.lastDay===y?S.dayStreak+1:1;S.lastDay=today;S.giftPending=true;save();
   $('#giftDay').textContent=`Day ${S.dayStreak} streak`;$('#gift').hidden=false;
 }
 $('#giftBox').addEventListener('click',()=>{
+  if(!S.giftPending)return;
+  S.giftPending=false;
   const amount=10+5*Math.min(S.dayStreak,7)+Math.floor(Math.random()*11);
   S.money+=amount;save();sfx('gift');sparkle($('#giftBox'),'#f5bc7c');
   $('#giftBox').classList.add('opened');$('#giftMsg').textContent=`+$${amount}! Come back tomorrow for more.`;
@@ -1716,7 +1741,7 @@ function onUp(){
   else if(k==='serve')serve();
   else if(k==='dock'&&G.cup&&G.cup.at!=='dock'){G.cup.at='dock';sfx('place');placeCup();}
 }
-function tossCup(){if(!G.cup)return;G.cup=null;sfx('trash');placeCup();}
+function tossCup(){if(!G.cup)return;G.cup=null;save();sfx('trash');placeCup();}
 
 /* ---------- Inputs ---------- */
 const benches=$('#benches');
@@ -1742,7 +1767,7 @@ $('#recipesBtn').onclick=()=>{$('#recipes').hidden=false;};
 $('#goalsBtn').onclick=()=>{renderGoals();$('#goals').hidden=false;};
 $('#albumBtn').onclick=()=>{renderAlbum();$('#album').hidden=false;};
 const np=$('#notepad');
-function toggleNotes(force){const open=force!==undefined?force:!np.classList.contains('open');np.classList.toggle('open',open);$('#noteTab').classList.remove('glow');if(open)setTimeout(()=>$('#notes').focus(),250);}
+function toggleNotes(force){const open=force!==undefined?force:!np.classList.contains('open');np.classList.toggle('open',open);$('#noteTab').classList.remove('glow');if(open)updateTicket();}
 $('#noteTab').onclick=()=>toggleNotes(true);$('#npClose').onclick=()=>toggleNotes(false);
 $('#notes').value=typeof S.notes==='string'?S.notes:'';
 $('#notes').oninput=()=>{S.notes=$('#notes').value;save();};
@@ -1785,8 +1810,8 @@ function giveCup(cup,cb,stars){
 /* ---------- Modes ---------- */
 function setMode(m){
   if(G.pour)endPour();
-  if(G.cup&&G.cup.at==='shaker')G.cup.at='dock';
-  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=0;
+
+  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=G.cup?.shakeP||0;
   document.body.classList.toggle('lab',m==='lab');
   $('.neon').textContent=m==='lab'?'drink lab':'boba';
   renderBar();renderShelf();renderNext();
@@ -1803,8 +1828,8 @@ function suggestName(c){
 function openName(){if(!G.cup||!G.cup.shaken)return;$('#namePreview').innerHTML=cupSVG(G.cup);$('#drinkName').value=suggestName(G.cup);$('#nameModal').hidden=false;setTimeout(()=>$('#drinkName').select(),80);}
 $('#nameForm').addEventListener('submit',e=>{e.preventDefault();if(!G.cup)return;
   const name=($('#drinkName').value.trim()||suggestName(G.cup)).slice(0,28);
-  const c=G.cup;S.creations=[{name,cup:{amt:{...c.amt},order:[...c.order],topping:c.topping,shaken:true}}].concat(S.creations||[]).slice(0,24);save();
-  G.cup=null;placeCup();$('#nameModal').hidden=true;renderShelf();$('#ctab').classList.add('glow');setTimeout(()=>$('#ctab').classList.remove('glow'),3500);sfx('goal');banner('Saved to your creations!',esc(name),'lvl');
+  const c=G.cup;S.creations=[{name,cup:{amt:{...c.amt},order:[...c.order],topping:c.topping,shaken:true}}].concat(S.creations||[]).slice(0,24);
+  G.cup=null;save();placeCup();$('#nameModal').hidden=true;renderShelf();$('#ctab').classList.add('glow');setTimeout(()=>$('#ctab').classList.remove('glow'),3500);sfx('goal');banner('Saved to your creations!',esc(name),'lvl');
   const first=$('#labShelf .mini');if(first){first.classList.add('fresh');sparkle(first,'#9de6c6');}
 });
 $('#nameToss').onclick=()=>{G.cup=null;placeCup();$('#nameModal').hidden=true;sfx('trash');};
@@ -1827,7 +1852,7 @@ function goHome(){if(G.pour)endPour();toggleNotes(false);document.querySelectorA
 $('#homeBtn').onclick=goHome;
 $('#playBtn').onclick=()=>{initAudio();applyAudio();$('#menu').hidden=true;setMode('cafe');
   if(!started){started=true;checkDaily();setTimeout(()=>{if(!G.cat)spawnCat();},700);}};
-$('#labBtn').onclick=()=>{initAudio();applyAudio();$('#menu').hidden=true;setMode('lab');if(!(S.creations||[]).length)banner('Welcome to the Drink Lab','Everything is unlocked here. Invent anything!','lvl');};
+$('#labBtn').onclick=()=>{initAudio();applyAudio();$('#menu').hidden=true;initCafe3D();setMode('lab');if(!(S.creations||[]).length)banner('Welcome to the Drink Lab','Everything is unlocked here. Invent anything!','lvl');};
 $('#menuSound').onclick=openSound;
 
 /* ---------- Boba Catch ---------- */
@@ -2553,8 +2578,8 @@ document.addEventListener('keydown',e=>{if(G.mode!=='decor'||e.target.matches('i
 /* ================= v7: hooks into the game ================= */
 function setMode(m){
   if(G.pour)endPour();
-  if(G.cup&&G.cup.at==='shaker')G.cup.at='dock';
-  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=0;
+
+  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=G.cup?.shakeP||0;
   document.body.classList.toggle('lab',m==='lab');document.body.classList.toggle('decorating',m==='decor');
   $('.neon').textContent=m==='lab'?'drink lab':'boba';
   if(C3.ok){C3.camMode=m==='decor'?'decor':'cafe';C3.pick=null;C3.sel=-1;showSel3();if(m==='decor')renderDecorPanel();}
@@ -2619,13 +2644,10 @@ G.playSec=0;
 setInterval(()=>{if(playing()&&G.mode==='cafe'&&++G.playSec%60===0){S.money+=2;setMoney(S.money);toast('+$2 · +5 XP for playing');gainXP(5);}},1000);
 
 /* ================= v8: forgot the order ================= */
-function updForgot(){const b=$('#forgotBtn');const show=G.mode==='cafe'&&!!G.cat&&G.phase==='made'&&$('#bubble').hidden;b.hidden=!show;if(show)b.textContent=`Forgot ${G.cat.name}’s order · $5`;}
+function updForgot(){const b=$('#forgotBtn');const show=G.mode==='cafe'&&!!G.cat&&G.phase==='made'&&$('#bubble').hidden;b.hidden=!show;if(show)b.textContent=`View order ticket`;}
 setInterval(updForgot,300);
 $('#forgotBtn').onclick=()=>{
-  if(!G.cat||!G.cat.text)return;
-  if(S.money<5){nope('You need $5 to ask again');return;}
-  S.money-=5;setMoney(S.money);save();renderHUD();$('#forgotBtn').hidden=true;
-  say('Okay, one more time! '+G.cat.text.slice(G.cat.text.indexOf('Can')),()=>{clearTimeout(G.hideT);G.hideT=setTimeout(()=>{if(G.phase==='made'){$('#bubble').hidden=true;updForgot();}},9000);});
+  toggleNotes(true);
 };
 
 /* ================= v8: walk-around counter ================= */
@@ -2667,9 +2689,9 @@ function renderBar(){
 }
 function setMode(m){
   if(G.pour)endPour();G.station=null;document.body.classList.remove('picking');
-  if(G.cup&&G.cup.at==='shaker')G.cup.at='dock';
-  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=0;
-  if(G.cup&&C3.ok)G.cup.at='dock';
+
+  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=G.cup?.shakeP||0;
+  if(G.cup&&C3.ok&&G.cup.at!=='shaker')G.cup.at='dock';
   document.body.classList.toggle('lab',m==='lab');document.body.classList.toggle('decorating',m==='decor');
   document.body.classList.toggle('walk',C3.ok&&m!=='decor');
   $('.neon').textContent=m==='lab'?'drink lab':'boba';
@@ -2857,7 +2879,7 @@ function loopC3(now){
     const moving=!!(vx||vz);
     if(moving){const l=Math.hypot(vx,vz);W3.x=Math.max(-4.35,Math.min(3.6,W3.x+vx/l*dt*3.2));W3.z=Math.max(2.95,Math.min(4.4,W3.z+vz/l*dt*3.2));W3.face=Math.atan2(vx,vz);}
     let near=null,best=9;
-    if(walk)STATIONS.forEach(st=>{const dx=Math.abs(st.x-W3.x);if(dx<.42&&W3.z<3.95&&dx<best){best=dx;near=st;}});
+    if(walk)STATIONS.forEach(st=>{const dx=Math.abs(st.x-W3.x);if(dx<.60&&W3.z<4.2&&dx<best){best=dx;near=st;}});
     if(near!==W3.near){W3.near=near;if(G.station&&(!near||near.id!==G.station))closePicker();}
     if(!moving&&near)W3.face=Math.PI;
     me.g.position.x=W3.x;me.g.position.z=W3.z;me.g.rotation.y+=angTo(me.g.rotation.y,W3.face)*Math.min(1,dt*10);
@@ -2882,8 +2904,8 @@ function loopC3(now){
     else{if(C3.hl)C3.hl.visible=false;pr.hidden=true;}
   }
   /* held cup */
-  const sig=G.cup?JSON.stringify([G.cup.amt,G.cup.topping,G.cup.shaken,G.cup.at,G.mode]):'';
-  if(sig!==C3.heldSig&&me){C3.heldSig=sig;if(C3.held&&C3.held.parent)C3.held.parent.remove(C3.held);C3.held=null;
+  const sig=G.cup?JSON.stringify([G.cup.order.map(id=>[id,Math.round(amt(G.cup,id)*20)]),G.cup.topping,G.cup.shaken,G.cup.at,G.mode]):'';
+  if(sig!==C3.heldSig&&me){C3.heldSig=sig;if(C3.held){C3.held.parent?.remove(C3.held);C3.held.traverse(o=>{o.geometry?.dispose();o.material?.dispose();o.dispose?.();});}C3.held=null;
     if(G.cup&&walk){const m=cupMesh3(G.cup),at=G.cup.at;C3.held=m;
       if(at==='shaker'){const st=STATIONS.find(s=>s.id==='shaker');m.position.set(st.x+.2,1.13,2.4);C3.sc.add(m);}
       else if(at!=='dock'){const st=STATIONS.find(s=>s.ids&&s.ids.includes(at));m.position.set(st?st.x:0,1.13,2.2);C3.sc.add(m);}
@@ -3144,9 +3166,9 @@ function buildMe3(){
 /* ================= v9: modes ================= */
 function setMode(m){
   if(G.pour)endPour();G.station=null;document.body.classList.remove('picking');
-  if(G.cup&&G.cup.at==='shaker')G.cup.at='dock';
-  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=0;
-  if(G.cup&&C3.ok)G.cup.at='dock';
+
+  G['cup_'+G.mode]=G.cup;G.mode=m;G.cup=G['cup_'+m]||null;G.shakeP=G.cup?.shakeP||0;
+  if(G.cup&&C3.ok&&G.cup.at!=='shaker')G.cup.at='dock';
   document.body.classList.toggle('lab',m==='lab');document.body.classList.toggle('decorating',m==='decor');
   document.body.classList.toggle('walk',C3.ok&&m!=='decor');
   $('.neon').textContent=m==='lab'?'drink lab':'boba';
@@ -3279,7 +3301,7 @@ function loopC3Body(now){
     const moving=!!(vx||vz);
     if(moving){const l=Math.hypot(vx,vz);W3.x=clamp(W3.x+vx/l*dt*2.8,-4.35,3.6);W3.z=clamp(W3.z+vz/l*dt*2.8,2.95,4.2);if(!C3.lookDrag)C3.fp.yaw*=1-Math.min(1,dt*1.2);}
     let near=null,best=9;
-    if(walk)STATIONS.forEach(st=>{const dx=Math.abs(st.x-W3.x);if(dx<.42&&W3.z<3.95&&dx<best){best=dx;near=st;}});
+    if(walk)STATIONS.forEach(st=>{const dx=Math.abs(st.x-W3.x);if(dx<.60&&W3.z<4.2&&dx<best){best=dx;near=st;}});
     if(near!==W3.near){W3.near=near;if(G.station&&(!near||near.id!==G.station))closePicker();}
     me.g.visible=false;me.g.position.set(W3.x,0,W3.z);
     let bob=moving?Math.sin(t*10)*.03:0;
@@ -3303,8 +3325,8 @@ function loopC3Body(now){
     else{if(C3.hl)C3.hl.visible=false;pr.hidden=true;}
   }else{$('#prompt3').hidden=true;if(C3.hl)C3.hl.visible=false;}
   /* held cup */
-  const sig=G.cup?JSON.stringify([G.cup.amt,G.cup.topping,G.cup.shaken,G.cup.at,G.mode,decor]):'';
-  if(sig!==C3.heldSig){C3.heldSig=sig;if(C3.held&&C3.held.parent)C3.held.parent.remove(C3.held);C3.held=null;
+  const sig=G.cup?JSON.stringify([G.cup.order.map(id=>[id,Math.round(amt(G.cup,id)*20)]),G.cup.topping,G.cup.shaken,G.cup.at,G.mode,decor]):'';
+  if(sig!==C3.heldSig){C3.heldSig=sig;if(C3.held){C3.held.parent?.remove(C3.held);C3.held.traverse(o=>{o.geometry?.dispose();o.material?.dispose();o.dispose?.();});}C3.held=null;
     if(G.cup&&walk&&!decor){const m=cupMesh3(G.cup),at=G.cup.at;C3.held=m;
       if(at==='shaker'){const st=STATIONS.find(s=>s.id==='shaker');m.position.set(st.x,1.13,2.66);C3.sc.add(m);}
       else if(at!=='dock'){const st=STATIONS.find(s=>s.ids&&s.ids.includes(at));m.position.set(st?st.x:0,1.13,2.66);C3.sc.add(m);}
@@ -3328,7 +3350,7 @@ function loopC3Body(now){
 
 /* ================= v9: tips ================= */
 const TIPS=['Reminder: you can use the notes on the side so you don’t forget the order!','Hold E a little longer to fill each pour all the way.','Perfect drinks in a row stack a combo bonus!',
-  'Forgot an order? Ask again for $5, or peek at your notes.','New flavors and furniture are waiting in the Shop.','Drag on the café to look around.','Reminder: jot the order in your notes before the bubble fades!'];
+  'Open Notes to check the recipe and what’s in your cup.','New flavors and furniture are waiting in the Shop.','Drag on the café to look around.','Reminder: jot the order in your notes before the bubble fades!'];
 let tipI=0;G.tipClock=0;
 function showTip(txt){const el=$('#tip');$('#tipTxt').textContent=txt||TIPS[tipI++%TIPS.length];el.classList.remove('show');void el.offsetWidth;el.classList.add('show');sfx('chime');
   clearTimeout(G.tipT);G.tipT=setTimeout(()=>el.classList.remove('show'),9000);}
@@ -3555,6 +3577,9 @@ Object.assign(FURN_PRICE,{hightable:40,coffeetable:35,longtable:70,sidetable:25}
 /* ================= v10: stations with moving parts ================= */
 function renderStations3(){
   if(!C3.ok)return;const T=THREE;
+  const layout=G.mode+'|'+S.unlocked.join(',');
+  if(C3.stRoot&&C3.stationLayout===layout)return;
+  C3.stationLayout=layout;
   if(!C3.stRoot){C3.stRoot=new T.Group();C3.sc.add(C3.stRoot);}
   const R=C3.stRoot;while(R.children.length)R.remove(R.children[0]);
   const P=C3.parts={handles:{},pumps:{},spouts:{},cupPos:{},tool:{},src:{}};
@@ -3813,7 +3838,7 @@ function loopC3Body(now){
     const moving=!!(vx||vz);
     if(moving){const l=Math.hypot(vx,vz);W3.x=clamp(W3.x+vx/l*dt*2.8,-5.3,4.4);W3.z=clamp(W3.z+vz/l*dt*2.8,2.95,5.7);if(!C3.lookDrag)C3.fp.yaw*=1-Math.min(1,dt*1.2);}
     let near=null,best=9;
-    if(walk)STATIONS.forEach(st=>{const dx=Math.abs(st.x-W3.x);if(dx<.42&&W3.z<3.95&&dx<best){best=dx;near=st;}});
+    if(walk)STATIONS.forEach(st=>{const dx=Math.abs(st.x-W3.x);if(dx<.60&&W3.z<4.2&&dx<best){best=dx;near=st;}});
     if(near!==W3.near){W3.near=near;if(G.station&&(!near||near.id!==G.station))closePicker();}
     me.g.visible=!!C3.tp;me.g.position.set(W3.x,moving?Math.abs(Math.sin(t*10))*.04:0,W3.z);me.g.rotation.y=C3.fp.yaw+Math.PI;if(C3.tp)me.tail.rotation.z=Math.sin(t*3)*.4;
     let bob=moving?Math.sin(t*10)*.03:0;
@@ -3838,8 +3863,8 @@ function loopC3Body(now){
     else{if(C3.hl)C3.hl.visible=false;pr.hidden=true;}
     animStations(dt,t);
   }else{$('#prompt3').hidden=true;if(C3.hl)C3.hl.visible=false;if(C3.stream)C3.stream.visible=false;}
-  const sig=G.cup?JSON.stringify([G.cup.amt,G.cup.topping,G.cup.shaken,G.cup.at,G.mode,decor,!!C3.tp]):'';
-  if(sig!==C3.heldSig){C3.heldSig=sig;if(C3.held&&C3.held.parent)C3.held.parent.remove(C3.held);C3.held=null;
+  const sig=G.cup?JSON.stringify([G.cup.order.map(id=>[id,Math.round(amt(G.cup,id)*20)]),G.cup.topping,G.cup.shaken,G.cup.at,G.mode,decor,!!C3.tp]):'';
+  if(sig!==C3.heldSig){C3.heldSig=sig;if(C3.held){C3.held.parent?.remove(C3.held);C3.held.traverse(o=>{o.geometry?.dispose();o.material?.dispose();o.dispose?.();});}C3.held=null;
     if(G.cup&&walk&&!decor){const m=cupMesh3(G.cup),at=G.cup.at;C3.held=m;const P=C3.parts||{cupPos:{}};
       if(at!=='dock'){const cp=P.cupPos[at];if(cp)m.position.copy(cp);else{const st=STATIONS.find(s=>s.id===at||(s.ids&&s.ids.includes(at)));m.position.set(st?st.x:0,1.13,2.62);}C3.sc.add(m);}
       else if(C3.tp&&C3.me){m.position.set(0,.5,.34);m.scale.setScalar(.75);C3.me.g.add(m);}
@@ -4070,7 +4095,7 @@ const GUIDE=[
   <ul class="glist"><li><b>Boba Supply Co.</b> sells new drinks and toppings. Cats start ordering whatever you unlock.</li><li><b>Paws &amp; Co. Home</b> sells furniture, tables and plants. It opens at level 3.</li></ul><p class="gp">Walk close to anything and a <b>Buy</b> button appears.</p>`],
  ['Decorating',`<p class="gp">At level 3, choose <span class="gk">Decorate</span> on the menu and walk into your café.</p>
   <ul class="glist"><li>Pick furniture you own from the tray, then click the floor to place it.</li><li>Click anything you placed to <b>Rotate</b>, <b>Move</b> or <b>Trash</b> it.</li><li>Change the walls and floor with the color swatches.</li><li>Switch to <b>Bird view</b> to see the whole room from above.</li></ul>`],
- ['Tips',`<ul class="glist"><li>Perfect drinks in a row build a <b>combo</b> that multiplies your tips.</li><li>Faster service means a bigger tip.</li><li>Forgot an order? Ask again for $5.</li>
+ ['Tips',`<ul class="glist"><li>Perfect drinks in a row build a <b>combo</b> that multiplies your tips.</li><li>Faster service means a bigger tip.</li><li>Open Notes for the current order ticket.</li>
   <li>Come back each day for a <b>gift</b>, and finish <b>goals</b> for bonus tips.</li><li>Rare cats sometimes visit and pay triple.</li></ul>`]
 ];
 let gPage=0;
@@ -5290,7 +5315,7 @@ const TUT=[
   {t:'Serve it',p:'Walk to <b>Serve</b> on the right and press <kbd>E</kbd>.',target:'serve',done:()=>S.served>(TUTS.served0||0)},
   {t:'You did it!',p:'You earn tips and XP for every drink. Spend tips in <b>Shops</b> to unlock new flavors, furniture and outfits. Have fun!',next:1,last:1}];
 const TUTS={i:-1};
-function tutStart(){TUTS.i=0;TUTS.served0=S.served;S.seenGuide=true;tutShow();}
+function tutStart(){if(S.tutDone||TUTS.i>=0)return;TUTS.i=0;TUTS.served0=S.served;S.seenGuide=true;tutShow();}
 function tutShow(){const s=TUT[TUTS.i];if(!s){tutEnd();return;}$('#tut').hidden=false;$('#tutNum').textContent=`Step ${TUTS.i+1} of ${TUT.length}`;$('#tutT').textContent=s.t;$('#tutP').innerHTML=s.p;
   $('#tutNext').hidden=!s.next;$('#tutNext').textContent=s.last?'Let’s go!':'Next';$('#tutSkip').hidden=!!s.last;sfx('chime');}
 function tutEnd(){TUTS.i=-1;$('#tut').hidden=true;S.tutDone=true;save();if(C3.tutArrow)C3.tutArrow.visible=false;}
@@ -5408,7 +5433,7 @@ function updPaws(){if(!C3.pawM)return;const me=S.me||{coat:'orange',apron:'#9de6
 
 /* ================= v16: start at the register ================= */
 const _startCafeV16=startCafe;
-startCafe=function(){_startCafeV16();if(C3.ok){if(!C3.walk)C3.walk={x:3.2,z:3.05,face:Math.PI,near:null};C3.walk.x=3.2;C3.walk.z=3.05;if(C3.fp){C3.fp.yaw=0;C3.fp.pitch=-.32;}}};
+startCafe=function(){_startCafeV16();if(C3.ok){if(!C3.walk)C3.walk={x:3.2,z:3.05,face:Math.PI,near:null};if(enteredShift)return;C3.walk.x=3.2;C3.walk.z=3.05;if(C3.fp){C3.fp.yaw=0;C3.fp.pitch=-.32;}}};
 function addRegister(){C3.reg=true;const T=THREE,g=new T.Group();g.position.set(4.55,1.13,2.45);g.rotation.y=-.35;C3.sc.add(g);
   const body=m3('#f6eedd',{roughness:.5}),dk=m3('#3a3557');const add=(geo,m,x,y,z)=>{const k=new T.Mesh(geo,m);k.position.set(x,y,z);g.add(k);return k;};
   add(new T.BoxGeometry(.42,.12,.34),body,0,.06,0);add(new T.BoxGeometry(.38,.03,.2),dk,0,.135,.05);
@@ -5480,13 +5505,13 @@ GUIDE[4][1]=GUIDE[4][1].replace(/level 3/g,'level 5');
 
 /* ================= v17: short, cute tutorial ================= */
 TUT.splice(0,TUT.length,
-  {t:'Hi! Let’s make boba',p:'<kbd>W A S D</kbd> walk · drag to look',next:1},
-  {t:'Take the order!',p:'Tap the button below',ui:'#takeBtn',done:()=>G.phase!=='greet'&&G.phase!=='empty'},
-  {t:'Remember it',p:'Jot it in your notes',ui:'#noteTab',done:()=>G.phase==='made'},
-  {t:'Grab a cup',p:'Follow the arrow · press <kbd>E</kbd>',target:'cups',done:()=>!!G.cup},
-  {t:'Pour it in',p:'<kbd>E</kbd> at a station · hold <kbd>1</kbd>–<kbd>9</kbd>',target:'tea',ui:'#chalk',done:()=>G.cup&&canShake(G.cup)},
+  {t:'Hi! Let’s make boba',p:'Use the arrow pad or <kbd>W A S D</kbd> to walk · drag to look',next:1},
+  {t:'Take the order!',p:'Tap Take order at the counter',ui:'#takeBtn',done:()=>G.phase!=='greet'&&G.phase!=='empty'},
+  {t:'Remember it',p:'Your order ticket is in Notes',ui:'#noteTab',done:()=>G.phase==='made'},
+  {t:'Grab a cup',p:'Tap Cups or press <kbd>E</kbd> at the station',target:'cups',done:()=>!!G.cup},
+  {t:'Pour it in',p:'Hold an ingredient to pour · open Notes for the recipe',target:'tea',ui:'#chalk',done:()=>G.cup&&canShake(G.cup)},
   {t:'Ice or toppings?',p:'Only if they asked!',target:'shaker',next:1},
-  {t:'Shake it!',p:'Tap <kbd>Space</kbd> fast',target:'shaker',done:()=>G.cup&&G.cup.shaken},
+  {t:'Shake it!',p:'Shake five times · tap the shaker or press Space',target:'shaker',done:()=>G.cup&&G.cup.shaken},
   {t:'Serve it',p:'Press <kbd>E</kbd> at Serve',target:'serve',done:()=>S.served>(TUTS.served0||0)},
   {t:'Goals',p:'Collect rewards here',ui:'#goalsBtn',next:1},
   {t:'Shops',p:'Unlock new flavors',ui:'#shopBtn',done:()=>!$('#mapModal').hidden},
@@ -5495,7 +5520,7 @@ function tutCatHTML(){try{return S.me?catSVGMe(S.me,'happy'):catSVG(COATS[0],'ha
 function tutShow(){const s=TUT[TUTS.i];if(!s){tutEnd();return;}const t=$('#tut');t.hidden=false;t.classList.remove('bump');void t.offsetWidth;t.classList.add('bump');
   $('#tutNum').innerHTML=TUT.map((_,i)=>`<i class="${i<TUTS.i?'d':i===TUTS.i?'c':''}"></i>`).join('');
   $('#tutT').textContent=s.t;$('#tutP').innerHTML=s.p;$('#tutCat').innerHTML=tutCatHTML();
-  $('#tutNext').hidden=!s.next;$('#tutNext').textContent=s.last?'Yay!':'Next';$('#tutSkip').hidden=!!s.last;sfx('chime');}
+  $('#tutNext').hidden=!s.next;$('#tutNext').textContent=s.last?'Yay!':'Next';$('#tutSkip').hidden=!!s.last;sfx('chime');save();}
 function tutMini(t,p,ui,done){TUTS.mini={t,p,ui,done};const el=$('#tut');el.hidden=false;el.classList.remove('bump');void el.offsetWidth;el.classList.add('bump');
   $('#tutNum').innerHTML='';$('#tutT').textContent=t;$('#tutP').innerHTML=p;$('#tutCat').innerHTML=tutCatHTML();$('#tutNext').hidden=false;$('#tutNext').textContent='OK';$('#tutSkip').hidden=true;sfx('chime');}
 const _levelUpV17=levelUp;
@@ -5504,6 +5529,7 @@ levelUp=function(){_levelUpV17();};
 function showShopHelp(){const h=$('#shopHelp');h.innerHTML=`<span><b>Glowing</b> = new! Walk close, tap <b>Buy</b>.</span><button class="shx" id="shopHelpX" type="button" aria-label="Close">×</button>`;h.hidden=false;
   clearTimeout(SH.helpT);SH.helpT=setTimeout(()=>{h.hidden=true;},6000);}
 
+$('#leaveStation').onclick=closePicker;
 const cafePad=document.getElementById('cafePad');
 cafePad.addEventListener('pointerdown',event=>{
   const key=event.target.dataset.k;
@@ -5520,6 +5546,170 @@ if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
     document.getElementById('saveStatus').textContent='Saves in this browser · Ready to play offline';
   }).catch(()=>{});
 }
+/* ---------- Shift checkpoints ---------- */
+function updateTicket(){
+  const ticket=$('#orderTicket');
+  const order=G.cat?.order;
+  ticket.hidden=!(order && G.mode==='cafe' && ['ordering','made'].includes(G.phase));
+  if(ticket.hidden)return;
+  $('#ticketName').textContent=G.cat.name+' · '+order.drink.name;
+  const rows=[...order.drink.ings].map(id=>[ING[id].name,inCup(G.cup,id)]);
+  rows.push([order.ice?'Ice':'No ice',!!amt(G.cup,'ice')===order.ice]);
+  rows.push([order.topping?ING[order.topping].name:'No topping',(G.cup?.topping||null)===order.topping]);
+  const list=$('#ticketItems');
+  const labels=rows.map(([name,done])=>(done?'✓ ':'○ ')+name);
+  if(list.dataset.labels===labels.join('|'))return;
+  list.dataset.labels=labels.join('|');
+  list.replaceChildren(...labels.map(label=>{const li=document.createElement('li');li.textContent=label;return li;}));
+}
+
+const savedShift=S.shift?.version===1?S.shift:null;
+let enteredShift=false;
+const resumeMode=savedShift?.mode||'cafe';
+function hydrateShift(shift){
+  if(!shift)return;
+  G.cup=shift.cafeCup||null;
+  G.cup_lab=shift.labCup||null;
+  for(const key of ['rushLeft','sinceRush','dayClock','playSec'])G[key]=shift[key]||0;
+  G.isDay=!!shift.isDay;G.dayT=G.isDay?1:0;
+  document.body.classList.toggle('day',G.isDay);
+  document.body.classList.toggle('rushing',!!G.rushLeft);
+  const guest=shift.guest;
+  if(!guest)return;
+  const coat=COATS.find(c=>c.id===guest.coat);
+  const drink=DRINKS.find(d=>d.id===guest.drink);
+  if(!coat||!drink)return;
+  G.cat={name:guest.name,coat,voice:guest.voice,acc:guest.acc,
+    order:{drink,ice:guest.ice,topping:guest.topping},text:guest.text};
+  G.phase=guest.phase==='greet'?'greet':'made';
+  G.patience=guest.patience;
+  setCatArt('idle');$('#catName').textContent=guest.name;
+  $('#tag').hidden=false;$('#tag').classList.toggle('rare',!!coat.rare);
+  $('#catZone').classList.remove('away');$('#takeBtn').hidden=G.phase!=='greet';
+  if(G.phase==='made'){$('#bubble').textContent=guest.text;$('#bubble').hidden=false;}
+}
+hydrateShift(savedShift);
+checkpointShift=function(){
+  if(!enteredShift)return;
+  const cat=G.cat,active=cat&&['greet','ordering','made'].includes(G.phase);
+  const walk=C3.walk,fp=C3.fp;
+  S.shift={version:1,mode:G.mode,
+    cafeCup:G.mode==='cafe'?G.cup:G.cup_cafe,
+    labCup:G.mode==='lab'?G.cup:G.cup_lab,
+    rushLeft:G.rushLeft,sinceRush:G.sinceRush,dayClock:G.dayClock,isDay:G.isDay,playSec:G.playSec,
+    tutorial:TUTS.i,servedAtTutorialStart:TUTS.served0,
+    drinkName:!$('#nameModal').hidden?$('#drinkName').value:null,
+    station:G.station,shop:SH.open?{kind:SH.kind,x:SH.x,z:SH.z,yaw:SH.yaw,pitch:SH.pitch,fromMenu:!!SH.fromMenu}:null,
+    pose:walk&&fp?{x:walk.x,z:walk.z,yaw:fp.yaw,pitch:fp.pitch,tp:!!C3.tp}:null,
+    guest:active?{name:cat.name,coat:cat.coat.id,voice:cat.voice,acc:cat.acc,
+      drink:cat.order.drink.id,ice:cat.order.ice,topping:cat.order.topping,text:cat.text,
+      phase:G.phase,patience:G.patience}:null};
+};
+function enterShift(){
+  if(enteredShift)return;
+  enteredShift=true;
+  if(G.cat)c3Spawn(G.cat.coat,G.cat.acc);
+  const pose=savedShift?.pose;
+  if(pose&&C3.walk&&C3.fp){
+    C3.walk.x=pose.x;C3.walk.z=pose.z;C3.fp.yaw=pose.yaw;C3.fp.pitch=pose.pitch;
+    if(pose.tp)setView(true);
+  }
+  if(!S.tutDone&&savedShift?.tutorial>=0&&TUT[savedShift.tutorial]&&G.mode==='cafe'){
+    TUTS.i=savedShift.tutorial;TUTS.served0=savedShift.servedAtTutorialStart??S.served;tutShow();
+  }
+  if(savedShift?.station&&pose&&C3.ok&&G.cup){
+    const station=STATIONS.find(st=>st.id===savedShift.station&&st.ids);
+    if(station)openPicker(station);
+  }
+  if(savedShift?.drinkName!=null&&G.mode==='lab'&&G.cup?.shaken){
+    openName();$('#drinkName').value=savedShift.drinkName;
+  }
+  if(savedShift?.shop&&MAPSPOTS.some(sp=>sp.id===savedShift.shop.kind&&(!sp.lv||S.level>=sp.lv))){
+    const shop=savedShift.shop;
+    openShop(shop.kind);
+    if(SH.open)Object.assign(SH,{x:shop.x,z:shop.z,yaw:shop.yaw,pitch:shop.pitch,fromMenu:shop.fromMenu});
+  }
+  renderHUD();renderNext();save();
+}
+const startShift=startCafe;
+startCafe=function(){startShift();enterShift();};
+for(const id of ['labBtn','designBtn']){
+  const button=$('#'+id),open=button.onclick;
+  button.onclick=function(){open();if($('#menu').hidden)enterShift();};
+}
+const beginFromMenu=$('#playBtn').onclick;
+$('#playBtn').onclick=function(){
+  if(!enteredShift&&resumeMode==='lab'&&S.level>=LV_LAB){$('#labBtn').click();return;}
+  if(!enteredShift&&resumeMode==='decor'&&S.level>=LV_DECOR){$('#designBtn').click();return;}
+  beginFromMenu();
+};
+setInterval(()=>{if(enteredShift&&(playing()||SH.open)&&!document.hidden)save();if(np.classList.contains('open'))updateTicket();},1000);
+window.addEventListener('pagehide',save);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save();});
+/* Save files use the same payload as autosave. Validate against game data before replacing a café. */
+function validBackup(data){
+  const num=v=>Number.isFinite(v)&&Math.abs(v)<=Number.MAX_SAFE_INTEGER;
+  const flag=v=>typeof v==='boolean'||v===0||v===1;
+  const str=v=>typeof v==='string';
+  const one=values=>v=>values.includes(v);
+  const list=(test,max=4096)=>v=>Array.isArray(v)&&v.length<=max&&v.every(test);
+  const record=v=>!!v&&typeof v==='object'&&!Array.isArray(v);
+  const fields=(rules,required=[])=>v=>record(v)&&required.every(k=>Object.hasOwn(v,k))&&
+    Object.keys(v).every(k=>Object.hasOwn(rules,k)&&rules[k](v[k]));
+  const maybe=test=>v=>v===null||test(v);
+  const ids=obj=>one(Object.keys(obj));
+  const ink=v=>typeof v==='string'&&/^#[a-f0-9]{6}$/i.test(v);
+  const ing=ids(ING),drink=one(DRINKS.map(d=>d.id)),coat=one(COATS.map(c=>c.id));
+  const topping=one(TOPS),acc=one([...ACC_OPTS.map(a=>a[0]),...Object.keys(WEAR)]);
+  const station=one(STATIONS.map(st=>st.id));
+  const cup=fields({amt:v=>record(v)&&Object.keys(v).every(k=>ing(k)&&num(v[k])&&v[k]>=0&&v[k]<=1),
+    order:list(ing,ORDER.length),topping:maybe(topping),shaken:flag,shakeP:num,
+    at:v=>v==='dock'||station(v)||ing(v)},['amt','order','topping','shaken']);
+  const guest=fields({name:str,coat,voice:num,acc,drink,ice:flag,topping:maybe(topping),text:str,
+    phase:one(['greet','ordering','made']),patience:num},['name','coat','voice','acc','drink','ice','topping','phase','patience']);
+  const mode=one(['cafe','lab','decor']);
+  const shift=fields({version:v=>v===1,mode,cafeCup:maybe(cup),labCup:maybe(cup),
+    rushLeft:num,sinceRush:num,dayClock:num,isDay:flag,playSec:num,tutorial:num,servedAtTutorialStart:num,
+    drinkName:maybe(str),station:maybe(station),shop:maybe(fields({kind:one(['market','furn','wear']),x:num,z:num,yaw:num,pitch:num,fromMenu:flag},['kind','x','z','yaw','pitch'])),
+    pose:maybe(fields({x:num,z:num,yaw:num,pitch:num,tp:flag},['x','z','yaw','pitch'])),guest:maybe(guest)},['version','mode']);
+  const furniture=ids(FURN);
+  const room=fields({wall:ids(WALLS),floor:ids(FLOORS),night:flag,items:list(fields({t:furniture,x:num,y:num,z:num,r:num,s:num,f:flag,c:ink},['t','x']))},['wall','floor','items']);
+  const unlock=v=>drink(v)||topping(v);
+  const rules={level:v=>Number.isSafeInteger(v)&&v>=1,unlocked:list(unlock),fresh:list(unlock),freshIng:list(ing),
+    met:list(coat),lastDay:str,grumpDay:str,audio:fields({all:flag,music:flag,rain:flag,sfx:flag}),
+    me:maybe(fields({name:str,coat,acc,eye:v=>v===''||ink(v),apron:ink},['name','coat','acc','apron'])),
+    goals:list(fields({t:ids(GOALS),p:num,n:num,reward:num,set:list(drink),ready:flag},['t','p','n','reward','set']),3),
+    creations:list(fields({name:str,cup},['name','cup']),24),notes:str,shift,cafe:room,cafe3d:room,
+    furn:list(furniture),wardrobe:list(acc),shopTut:fields({market:flag,wear:flag,furn:flag,bar:flag})};
+  for(const k of ['money','xp','served','perfect','combo','best','bestCatch','dayStreak','earned','rebirths'])rules[k]=num;
+  for(const k of ['giftPending','seenGuide','tutDone','shopHelp','hudMin'])rules[k]=flag;
+  return fields(rules,['level','unlocked','goals','met','creations','money','xp'])(data)&&data.unlocked.some(drink);
+}
+$('#backupBtn').onclick=()=>{$('#backupMsg').textContent='';$('#backupPanel').hidden=false;};
+$('#downloadSave').onclick=()=>{
+  if(checkpointShift)checkpointShift();
+  const blob=new Blob([JSON.stringify({game:KEY,version:1,data:S})],{type:'application/json'});
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download='midnight-paws-'+new Date().toISOString().slice(0,10)+'.json';
+  link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+};
+$('#chooseSave').onclick=()=>$('#backupFile').click();
+$('#backupFile').onchange=async event=>{
+  const file=event.target.files[0];event.target.value='';
+  if(!file)return;
+  const msg=$('#backupMsg');
+  try{
+    if(file.size>5*1024*1024)throw new Error();
+    const pack=JSON.parse(await file.text());
+    if(pack.game!==KEY||pack.version!==1||!validBackup(pack.data))throw new Error();
+    if(!confirm('Replace this browser’s café with the level '+pack.data.level+' café in this backup?'))return;
+    if(localStorage.getItem(KEY)!==lastSave){msg.textContent='Another tab changed your save. Reload before restoring.';return;}
+    localStorage.setItem(KEY,JSON.stringify(pack.data));
+    unreadableSave=true; // Keep the outgoing tab from checkpointing over the imported café.
+    location.reload();
+  }catch(error){msg.textContent='Could not restore this file. Your current café is still here.';}
+};
+
 /* ---------- Boot ---------- */
 if(S.me)$('#playBtn').textContent='Continue shift';
 ensureGoals();save();
