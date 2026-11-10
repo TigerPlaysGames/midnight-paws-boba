@@ -13,10 +13,11 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=12">
-<link rel="stylesheet" href="original-room.css?v=12">
-<script src="cafe-room.js?v=12"></script>
-<script src="cafe-service.js?v=12"></script>
+<link rel="stylesheet" href="cafe-service.css?v=13">
+<link rel="stylesheet" href="original-room.css?v=13">
+<script src="cafe-workers.js?v=13"></script>
+<script src="cafe-room.js?v=13"></script>
+<script src="cafe-service.js?v=13"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -1719,7 +1720,7 @@ function popText(big,stars,sub,cls){const p=document.createElement('div');p.clas
   $('#scene').appendChild(p);setTimeout(()=>p.remove(),2000);}
 function confetti(n){const sc=$('#scene'),{x,y}=catPoint(),cols=['#9de6c6','#f3a9bc','#f5bc7c','#f6eedd','#b69ad8'];
   for(let i=0;i<(n||34);i++){const d=document.createElement('i');d.className='conf';d.style.left=x+'px';d.style.top=y+'px';d.style.background=pick(cols);sc.appendChild(d);
-    const a=-Math.PI/2+(Math.random()-.5)*2.4,v=120+Math.random()*160,dx=Math.cos(a)*v,dy=Math.sin(a)*v;
+    const a=-Math.PI/2+(Math.random()-.5)*2.4,v=130+Math.random()*160,dx=Math.cos(a)*v,dy=Math.sin(a)*v;
     d.animate([{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${dx}px,${dy}px) rotate(${Math.random()*360}deg)`,opacity:1,offset:.5},{transform:`translate(${dx*1.3}px,${dy+180}px) rotate(${Math.random()*720}deg)`,opacity:0}],
       {duration:1300+Math.random()*500,easing:'cubic-bezier(.2,.7,.4,1)'}).onfinish=()=>d.remove();}}
 function hearts(n){const sc=$('#scene'),{x,y}=catPoint();for(let i=0;i<(n||5);i++){const h=document.createElement('span');h.className='heart';h.textContent='♥';h.style.left=(x+(Math.random()*80-40))+'px';h.style.top=(y+20)+'px';sc.appendChild(h);
@@ -4119,7 +4120,7 @@ function loopShop(now){
 /* ================= v10: guidebook ================= */
 const GUIDE=[
  ['Café rounds','<p class="gp">Use <b>WASD</b> to move, the mouse to look and <b>E</b> to work. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Ask for an order and stay at the register for two seconds while you write. Grab a cup and choose its base at the tea brewer by number or tap. Take another order while it pours.</li><li><b>Brown Sugar Milk Tea</b> starts with Brown Sugar Tea and needs a separate pour of milk. For <b>Jasmine Tea</b>, brew the Jasmine Tea base and skip the milk. Follow the ticket for ice and toppings.</li><li>Add the requested topping, such as foam or coconut jelly. Seal the drink at the lid press, move it to the shaker, then deliver it at pickup.</li><li>Collect each cup with an empty hand when its timer says <b>Ready</b>. Serve three cats to finish round one.</li></ol>'],
- ['Café workers','<p class="gp">Miso writes tickets. Nori brews tea, seals cups and runs the shaker. Peach adds milk and ice, Bao handles toppings and Yuzu delivers finished drinks.</p><p class="gp">Open <b>Crew</b> to hire or train a worker. You can do any of these jobs yourself.</p>'],
+ ['Café workers','<p class="gp">Open Crew to draw workers with hiring tickets. You start with one ticket and earn another after each completed round. The board lists every worker and the odds.</p><p class="gp">Assign one worker to each job. Cashiers shorten order time, brewers speed tea and milk, finishers speed ice through shaking, servers increase tips, and hosts bring the next cat sooner. Duplicate workers gain XP.</p>'],
  ['Explore controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
   <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
  ['Shops',`<p class="gp">Press <span class="gk">Shop</span> and pick a store. You’ll arrive on the sidewalk, so walk in through the door.</p>
@@ -5815,12 +5816,15 @@ if(window.BobaService){
     state:S,drinks:cafeDrinks,ingredients:ING,tops:TOPS,coats:COATS,names:NAMES,save,
     portrait:id=>catSVG(COATS.find(c=>c.id===id),'happy','none'),
     enter(){history.replaceState(null,'','#cafe');initAudio();applyAudio();},
-    reward(order){
+    reward(order,workers){
       const recipe=DRINKS.find(d=>d.id===order.drink),rare=!!COATS.find(c=>c.id===order.coat).rare;
       S.combo++;S.best=Math.max(S.best,S.combo);
       const serviceQuality=Math.min(order.greetingQuality??1,order.left/order.limit);
-      const base=recipe.price+(order.top?1:0)+Math.round(4*serviceQuality);
-      const pay=Math.round(base*mult()*(rare?3:1)*(1+.25*(S.rebirths||0)));
+      const price=recipe.price+(order.top?1:0),tip=Math.round(4*serviceQuality);
+      const scale=mult()*(rare?3:1)*(1+.25*(S.rebirths||0));
+      const earnings=Math.round((price+tip)*scale);
+      const paidTip=earnings-Math.round(price*scale);
+      const pay=earnings+window.BobaWorkers.bonusTip(workers,paidTip);
       S.money+=pay;S.earned+=pay;S.served++;S.perfect++;
       if(!S.met.includes(order.coat))S.met.push(order.coat);
       S.fresh=S.fresh.filter(id=>id!==order.drink&&id!==order.top);

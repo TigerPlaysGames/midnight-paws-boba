@@ -3,13 +3,20 @@ window.BobaService=(()=>{
   'use strict';
   const roomApi=window.BobaRoom, pourTime=3.5,lidTime=1.3,topTime=.75,ovenTime=2.8,cleanTime=1.7,arrivalTime=3;
   const orderTime = 2;
+  const crew = window.BobaWorkers;
+  const jobForSlot = Object.fromEntries(crew.tracks.map(job=>[crew.jobs[job].slot,job]));
+  const jobForMachine = {tea0:'brewer',tea1:'brewer',milk:'brewer',ice:'finisher',top:'finisher',lid:'finisher',shake:'finisher'};
+  const helpersFor = {tea:['barista'],milk:['cleaner','barista'],ice:['cook','cleaner','barista'],
+    top:['cook','barista'],lid:['cook','barista'],shake:['cook','barista']};
+  const workerCard = slot => crew.cards.get(state.workers?.equipped[jobForSlot[slot]]);
+  const timeWithCrew = (seconds, job) => seconds * (1-crew.bonus(state.workers,job)/100);
   const desserts={bao:'Steamed veggie bao',toast:'Sesame toast',onigiri:'Grilled onigiri',mochi:'Strawberry mochi',taiyaki:'Custard taiyaki',roll:'Matcha roll'};
   const roles={
-    cashier:{name:'Miso',title:'Order taker',description:'Writes the front guest’s ticket.',coat:'orange',cost:12,kinds:['take']},
-    cleaner:{name:'Peach',title:'Milk & ice attendant',description:'Adds the milk and ice on each ticket.',coat:'calico',cost:16,kinds:['wipe','milk','ice']},
-    barista:{name:'Nori',title:'Barista',description:'Brews bases, seals cups and runs the shaker.',coat:'black',cost:28,kinds:['brew','milk','ice','top','seal','shake']},
-    cook:{name:'Bao',title:'Toppings specialist',description:'Adds requested toppings to parked and crew cups.',coat:'brown',cost:24,kinds:['cook','top']},
-    server:{name:'Yuzu',title:'Server',description:'Carries finished items to the right guest.',coat:'white',cost:32,kinds:['serveCup','serveFood']}
+    cashier:{kinds:['take']},
+    cleaner:{kinds:['wipe','milk','ice']},
+    barista:{kinds:['brew','milk','ice','top','seal','shake']},
+    cook:{kinds:['cook','ice','top','seal','shake']},
+    server:{kinds:['serveCup','serveFood']}
   };
   const bays=['tea0','tea1'],equipment=[...bays,'milk','ice','top','lid','shake'];
   const machineNames={tea0:'Brewer A',tea1:'Brewer B',milk:'Milk dispenser',ice:'Ice bin',top:'Topping bowl',lid:'Lid press',shake:'Shaker'};
@@ -19,7 +26,7 @@ window.BobaService=(()=>{
   const taskByStation={tea0:'brew',tea1:'brew',milk:'milk',ice:'ice',top:'top',lid:'seal',shake:'shake'};
   const stages=['empty','filled','sealed','ready',...new Set(Object.values(operation))];
   const arrivals=new WeakSet();
-  let app,dialog,room,state,frameId,last,saveDue,readout='',notice='',noticeUntil=0,crewOpen=false,briefing=false,chooser=null,contact=null;
+  let app,dialog,room,state,frameId,last,saveDue,readout='',notice='',noticeUntil=0,crewOpen=false,drawMessage='',briefing=false,chooser=null,contact=null;
   const by=s=>dialog.querySelector(s),pick=a=>a[Math.floor(Math.random()*a.length)];
   const drink=id=>app.drinks.find(d=>d.id===id), orders=()=>state.orders;
   const order=id=>orders().find(o=>o.id===id), tracked=()=>order(state.selected);
@@ -57,6 +64,7 @@ window.BobaService=(()=>{
     if(!app||!s||![1,2,3,4,5].includes(s.version)||typeof s.paused!=='boolean'||!count(s.serial)||
        !within(s.arrival,3)||!Array.isArray(s.orders)||s.orders.length>(s.version>=3?6:3))return false;
     const ids=new Set(),seats=new Set(),occupied=new Set();
+    if (s.workers!==undefined && !crew.valid(s.workers)) return false;
     const modern=s.version===5,stations=modern?equipment:[...bays,'top','lid'];
     for(const o of s.orders){
       if(!o||!Number.isSafeInteger(o.id)||o.id<1||o.id>s.serial||ids.has(o.id)||!app.names.includes(o.name)||
@@ -104,7 +112,11 @@ window.BobaService=(()=>{
          !staff||!career||!['shifts','served','missed','cleaned'].every(k=>count(career[k])))return false;
       for(const [role,def] of Object.entries(roles)){
         const w=staff[role];
-        if(!w||!Number.isInteger(w.level)||!within(w.level,3)||!count(w.done)||typeof w.onDuty!=='boolean')return false;
+        if(!w||!Number.isInteger(w.level)||!within(w.level,s.workers?5:3)||!count(w.done)||typeof w.onDuty!=='boolean')return false;
+        if(s.workers) {
+          const id=s.workers.equipped[jobForSlot[role]];
+          if (!!id!==!!(w.level && w.onDuty) || (id && w.level!==s.workers.owned[id].level)) return false;
+        }
         const t=w.task;
         if(t!==null&&(!t||!w.level||!def.kinds.includes(t.kind)||!within(t.left,12)||
           (t.kind==='wipe'?modern||t.id!==0||!Number.isInteger(t.seat)||!s.dirty[t.seat]:!ids.has(t.id))))return false;
@@ -247,9 +259,10 @@ window.BobaService=(()=>{
     if(quality>=.45)state.shift.timely++;
     if(state.shift.served===state.shift.quota){
       state.shift.complete=true;state.career.shifts++;state.job=null;
+      if(state.workers){state.workers.tickets++;state.shift.hiringTicket=true;}
       for(const worker of Object.values(state.staff))worker.task=null;
     }
-    const pay=app.reward(o);state.shift.earned+=pay;
+    const pay=app.reward(o,state.workers);state.shift.earned+=pay;
     say(o.name+(quality<.25?' left a small tip.':quality<.55?' collected their order.':' loved it!')+' +$'+pay);
     return true;
   }
@@ -258,6 +271,7 @@ window.BobaService=(()=>{
     const old=app.state.cafeService,next=fresh();
     if(valid(old)&&old.version>=3){
       next.career=old.career;next.staff=old.staff;
+      next.workers=old.workers??crew.create(old.staff);
       for(const w of Object.values(next.staff))w.task=null;
     }
     app.state.cafeService=next;state=next;
@@ -274,7 +288,7 @@ window.BobaService=(()=>{
     return 'lid';
   }
   function dock(o,at,recipe,worker=null){
-    const duration=durationByStation[at]/(worker?1+.25*(state.staff[worker].level-1):1);
+    const duration=timeWithCrew(durationByStation[at],jobForMachine[at]);
     const c=o.cup;
     if(bays.includes(at)){
       const requested=drink(o.drink);
@@ -287,8 +301,8 @@ window.BobaService=(()=>{
   }
   function nextTask(role,w){
     const guests=tickets();
-    const make=(kind,id,seat,seconds)=>({kind,id,seat,left:seconds/(1+.35*(w.level-1))});
-    if(role==='cashier'){const g=line()[0];return g&&!writingTicket()&&freeSeat()>=0?make('take',g.id,null,2.4):null;}
+    const make=(kind,id,seat,seconds)=>({kind,id,seat,left:seconds});
+    if(role==='cashier'){const g=line()[0];return g&&!writingTicket()&&freeSeat()>=0?make('take',g.id,null,timeWithCrew(orderTime,'cashier')):null;}
     if(role==='server'){
       const g=guests.find(o=>o.cup.stage==='ready'&&mixed(o)&&(o.cupAt==='shelf'||o.cupAt==='shake'&&o.cup.auto));
       return g?make('serveCup',g.id,g.seat,2.1):null;
@@ -298,9 +312,8 @@ window.BobaService=(()=>{
     for(const g of available.sort((a,b)=>Number(a.cup.stage==='empty')-Number(b.cup.stage==='empty'))){
       const next=nextStation(g);
       if(next==='pickup')continue;
-      const specialist=next==='milk'||next==='ice'?'cleaner':next==='top'?'cook':null;
-      const helper=specialist&&state.staff[specialist];
-      if(role!==(helper?.level&&helper.onDuty?specialist:'barista'))continue;
+      const assignedSlot=helpersFor[next].find(slot=>state.staff[slot].level && state.staff[slot].onDuty);
+      if(role!==assignedSlot)continue;
       const at=next==='tea'?freeBay():next;
       if(at&&!occupant(at))return dock(g,at,next==='tea'?drink(g.drink).base:g.top,role);
     }
@@ -381,7 +394,7 @@ window.BobaService=(()=>{
     if(workCrew(dt))changed=true;
     const queueCap=state.shift.greeted?3:2;
     if(!state.shift.complete&&orders().length<state.shift.quota-state.shift.served&&line().length<queueCap){
-      state.arrival=Math.max(0,state.arrival-dt);
+      state.arrival=Math.max(0,state.arrival-dt/timeWithCrew(1,'host'));
       if(!state.arrival){arrive();changed=true;}
     }
     return changed;
@@ -414,7 +427,7 @@ window.BobaService=(()=>{
     const other=atRack();if(other)return ['rack','Pick up a cup for '+other.name];
     if(o&&running(o))return [counterFor(o.cupAt),machineNames[o.cupAt]+' is working for '+o.name];
     if(o)return ['pickup','Your crew is helping '+o.name];
-    if(guest&&assigned('cashier',guest.id,'take'))return ['line','Miso is taking '+guest.name+'’s order'];
+    if(guest&&assigned('cashier',guest.id,'take'))return ['line',workerCard('cashier').name+' is taking '+guest.name+'’s order'];
     return [null,guest?'Finish a ticket to take another order':'The next guest is on the way'];
   }
   function stationName(id){
@@ -500,7 +513,7 @@ window.BobaService=(()=>{
     const at=roomApi.nearest(state.pose,exists);if(!action(at))return;
     const h=held();
     if(at==='line'){
-      line()[0].orderLeft = orderTime;
+      line()[0].orderLeft = timeWithCrew(orderTime,'cashier');
       room.pulse(at);
       noticeUntil = 0;
     }else if(at==='pickup'){
@@ -542,7 +555,9 @@ window.BobaService=(()=>{
     for(const id of ['milk','ice','top','lid','shake'])items[id]=machine(id);
     for(const [role,w] of Object.entries(state.staff))if(w.level&&w.onDuty){
       const t=w.task,anchor={take:'line',brew:'tea',milk:'milk',ice:'ice',top:'top',seal:'lid',shake:'shake',serveCup:'pickup'};
-      items.crew.push({role,name:roles[role].name,coat:roles[role].coat,working:!!t,
+      const card=workerCard(role);
+      if(!card)continue;
+      items.crew.push({role,name:card.name,coat:card.coat,working:!!t,
         station:t?anchor[t.kind]:{cashier:'line',cleaner:'milk',barista:'tea',cook:'top',server:'pickup'}[role]});
     }
     return items;
@@ -558,24 +573,35 @@ window.BobaService=(()=>{
     return {take:'Taking '+guest+'’s order',brew:'Brewing for '+guest,milk:'Adding milk for '+guest,ice:'Adding ice for '+guest,top:'Adding topping for '+guest,
       seal:'Sealing '+guest+'’s cup',shake:'Shaking '+guest+'’s cup',serveCup:'Taking a drink to '+guest}[t.kind];
   }
-  function staffCost(role){return roles[role].cost*(state.staff[role].level+1);}
   function crewPanel(){
-    const focused=document.activeElement?.closest('.bw-crew-list button');
-    const prior=focused&&{action:focused.dataset.service,role:focused.dataset.id};
-    by('.bw-crew-wallet').textContent='$'+Math.floor(app.state.money)+' available';
-    by('.bw-crew-list').innerHTML=Object.entries(roles).map(([role,def])=>{
-      const w=state.staff[role],price=staffCost(role),enabled=w.level<3&&app.state.money>=price;
-      const status=w.level?(w.onDuty?taskText(w.task):'Off duty')+' · '+w.done+' completed':def.description;
-      return '<article><div><b>'+def.name+' · '+def.title+'</b><small>'+status+'</small></div><div class="bw-crew-actions">'+
-        (w.level?'<button type="button" data-service="duty" data-id="'+role+'">'+(w.onDuty?'Off duty':'Go on duty')+'</button>':'')+
-        '<button type="button" data-service="hire" data-id="'+role+'" '+(enabled?'':'disabled')+'>'+
-        (w.level===3?'Level 3':w.level?'Train Lv '+(w.level+1)+' · $'+price:'Hire · $'+price)+'</button></div></article>';
-    }).join('');
-    if(prior){
-      const next=by('[data-service="'+prior.action+'"][data-id="'+prior.role+'"]:not(:disabled)')||
-        by('[data-service="duty"][data-id="'+prior.role+'"]');
-      next?.focus({preventScroll:true});
+    const list=by('.bw-crew-list'),focused=document.activeElement?.closest('.bw-crew-list [data-id]')?.dataset.id;
+    const book=state.workers;
+    by('.bw-crew-wallet').textContent=book.tickets+' hiring ticket'+(book.tickets===1?'':'s');
+    by('[data-service="draw"]').disabled=book.tickets===0;
+    const last=crew.cards.get(book.last);
+    by('.bw-draw-result').textContent=drawMessage || (last?'Last draw: '+last.name+' · '+last.tier.name+' '+crew.jobs[last.job].title:'');
+    const picture=by('.bw-draw-picture');
+    if(picture.dataset.worker!==(book.last||'')){
+      picture.dataset.worker=book.last||'';
+      picture.innerHTML=last?app.portrait(last.coat):'';
     }
+    picture.hidden=!last;
+    const expanded=new Set([...list.querySelectorAll('details[open]')].map(row=>row.dataset.job));
+    list.innerHTML=crew.tracks.map(job=>{
+      const def=crew.jobs[job],active=crew.cards.get(book.equipped[job]);
+      const owned=[...crew.cards.values()].filter(card=>card.job===job && book.owned[card.id]);
+      const heading=active?active.name+' · Lv '+book.owned[active.id].level:'Unassigned';
+      const percent=(active?crew.power(book,active.id)+'% ':'')+def.verb+' '+def.effect;
+      const options=owned.map(card=>{
+        const entry=book.owned[card.id],equipped=active===card;
+        const xp=entry.level===5?'Max level':entry.xp+'/'+entry.level+' XP';
+        return '<article><div><b>'+card.name+' · '+card.tier.name+'</b><small>Lv '+entry.level+' · '+xp+' · '+crew.power(book,card.id)+'% '+def.verb+' '+def.effect+'</small></div>'+
+          '<button type="button" data-service="assign" data-id="'+card.id+'" aria-label="'+(equipped?'Rest ':'Assign ')+card.name+'">'+(equipped?'Rest':'Assign')+'</button></article>';
+      }).join('') || '<small>Draw a '+def.title.toLowerCase()+' to fill this job.</small>';
+      return '<details class="bw-staff-job" data-job="'+job+'" '+(expanded.has(job)?'open':'')+'><summary><b>'+def.title+'</b><span>'+heading+'</span>'+
+        '<small>'+percent+'</small></summary>'+options+'</details>';
+    }).join('');
+    if(focused)by('[data-service="assign"][data-id="'+focused+'"]')?.focus({preventScroll:true});
   }
   function toggleCrew(show){
     if(chooser)closeChooser(false);crewOpen=show;room.clear();last=performance.now();render();
@@ -583,16 +609,32 @@ window.BobaService=(()=>{
     else if(active())playLook();
     else (briefing?by('[data-service="begin"]'):state.shift.complete?by('[data-service="next"]'):by('.bs-paused [data-service="pause"]')).focus({preventScroll:true});
   }
-  function purchase(role){
-    if(!crewOpen||!Object.hasOwn(roles,role))return;
-    const w=state.staff[role],price=staffCost(role);
-    if(w.level>=3||app.state.money<price)return;
-    app.state.money-=price;w.level++;app.save();render();
+  function syncSlot(job){
+    const id=state.workers.equipped[job],worker=state.staff[crew.jobs[job].slot];
+    worker.level=id?state.workers.owned[id].level:0;
+    worker.onDuty=!!id;
   }
-  function duty(role){
-    if(!crewOpen||!Object.hasOwn(roles,role))return;
-    const w=state.staff[role];if(!w.level)return;
-    w.onDuty=!w.onDuty;if(!w.onDuty)w.task=null;app.save();render();
+  function drawWorker(){
+    if(!crewOpen)return;
+    const result=crew.draw(state.workers);
+    if(!result)return;
+    const {card,record,previousLevel}=result;
+    syncSlot(card.job);
+    const gain=!previousLevel?'New worker':record.level>previousLevel?'Level up to '+record.level:record.level===5?'Max level':'Duplicate · +1 XP';
+    drawMessage=card.name+' · '+card.tier.name+' '+crew.jobs[card.job].title+' · '+gain;
+    app.save();render();
+  }
+  function assignWorker(id){
+    const card=crew.cards.get(id);
+    if(!crewOpen || !card || !state.workers.owned[id])return;
+    const job=card.job,slot=crew.jobs[job].slot,worker=state.staff[slot];
+    if(worker.task){
+      const cup=order(worker.task.id)?.cup;
+      if(cup?.actor===slot)cup.actor=null;
+      worker.task=null;
+    }
+    state.workers.equipped[job]=state.workers.equipped[job]===id?null:id;
+    syncSlot(job);app.save();render();
   }
   function drawMachineTimers(){
     const rail=by('.bw-machine-timers');
@@ -619,7 +661,7 @@ window.BobaService=(()=>{
       beat.style.setProperty('--pulse',String(1-writing.orderLeft/orderTime));
     } else if(contact){const text=contact.label+' · '+Math.max(0,.45-contact.age).toFixed(1)+'s';if(beat.textContent!==text)beat.textContent=text;beat.style.setProperty('--pulse',String(Math.min(1,contact.age/.45)));}
     const working=Object.entries(state.staff).find(([,w])=>w.task);
-    const staff=working?roles[working[0]].name+' · '+taskText(working[1].task)+' · '+working[1].task.left.toFixed(1)+'s':'';
+    const staff=working?workerCard(working[0]).name+' · '+taskText(working[1].task)+' · '+working[1].task.left.toFixed(1)+'s':'';
     if(by('.bw-on-floor').textContent!==staff)by('.bw-on-floor').textContent=staff;
   }
   function render(){
@@ -646,7 +688,7 @@ window.BobaService=(()=>{
     if(crewOpen)crewPanel();
     if(f.complete){
       room.releaseLook();by('.bw-receipt h2').textContent='Round '+f.number+' complete!';
-      by('.bw-receipt p').textContent=f.served+' guests served · $'+f.earned+' earned';
+      by('.bw-receipt p').textContent=f.served+' guests served · $'+f.earned+' earned'+(f.hiringTicket?' · +1 hiring ticket':'');
       const ratings=[[true,'Service goal met'],[f.missed===0,'No guests left early'],[f.timely===f.quota,'Every guest greeted and served promptly']];
       const stars=ratings.filter(([earned])=>earned).length,badge=by('.bw-round-stars');badge.textContent='★'.repeat(stars)+'☆'.repeat(3-stars);badge.setAttribute('aria-label',stars+' of 3 stars');
       by('.bw-round-ratings').innerHTML=ratings.map(([earned,label])=>'<li data-earned="'+earned+'" aria-label="'+(earned?'Earned: ':'Missed: ')+label+'">'+label+'</li>').join('');
@@ -728,6 +770,8 @@ window.BobaService=(()=>{
   function open(){
     if(dialog.open)return;app.enter();chooser=null;contact=null;state=app.state.cafeService;
     state=app.state.cafeService=valid(state)?migrate(state):fresh();crewOpen=false;briefing=!state.shift.complete;
+    state.workers??=crew.create(state.staff);
+    drawMessage='';
     const avatar=by('.bw-avatar'),original=document.querySelector('.hud .brand .avatar svg');
     if(original)avatar.replaceChildren(original.cloneNode(true));else avatar.innerHTML=app.portrait(app.state.me?.coat||app.coats[0].id);
     by('.bs-brand h1').textContent=(app.state.me?.name||'Chef')+'’s Café';
@@ -744,7 +788,12 @@ window.BobaService=(()=>{
     '<aside class="bw-recipe-panel" hidden><section class="bw-recipe-card" role="dialog" aria-modal="true" aria-labelledby="bwRecipeHeading"><header><h2 id="bwRecipeHeading">Choose a tea base</h2><button type="button" class="bw-recipe-close" data-service="recipeclose" aria-label="Close recipe menu">Close</button></header><p class="bw-recipe-ticket"></p><div class="bw-recipe-options"></div><nav class="bw-recipe-pages" aria-label="Recipe pages"><button type="button" data-service="prevtea">Previous</button><span></span><button type="button" data-service="nexttea">More teas</button></nav></section></aside>'+
     '<aside class="bs-paused" hidden><div><span>☾</span><h2>Round paused</h2><p>Your cats and machines will wait.</p><button type="button" data-service="pause">Resume round</button></div></aside>'+
     '<aside class="bw-receipt" hidden><section role="status"><small>Midnight Paws Café</small><h2></h2><div class="bw-round-stars" role="img"></div><p></p><ul class="bw-round-ratings"></ul><button type="button" data-service="next">Next round</button></section></aside>'+
-    '<aside class="bw-crewboard" hidden><section role="dialog" aria-label="Café crew"><header><div><h2>Café crew</h2><strong class="bw-crew-wallet"></strong></div><button type="button" data-service="crewclose">Back to café</button></header><div class="bw-crew-list"></div></section></aside><div class="bs-save-warning" role="alert"></div>';
+    '<aside class="bw-crewboard" hidden><section role="dialog" aria-label="Café crew"><header><div><h2>Café crew</h2><strong class="bw-crew-wallet"></strong></div><button type="button" data-service="crewclose">Back to café</button></header>'+
+    '<div class="bw-hiring"><p>Start with one hiring ticket. Earn another each time you finish a round.</p><div class="bw-rarity-odds">'+
+    crew.tiers.map(t=>'<span data-tier="'+t.name+'">'+t.name+' <b>'+t.chance+'%</b></span>').join('')+'</div>'+
+    '<details class="bw-pool"><summary>Workers and draw odds</summary><p>Each tier has one worker per job. Duplicates earn 1 XP. Each level adds 3 percentage points to the bonus, up to level 5.</p>'+
+    crew.tiers.map(t=>'<p><b>'+t.name+' · '+t.base+'% starting bonus · '+(t.chance/5)+'% each</b><br>'+t.names.map((n,i)=>n+' ('+crew.jobs[crew.tracks[i]].title+')').join(', ')+'</p>').join('')+'</details>'+
+    '<button type="button" data-service="draw">Draw a worker · 1 ticket</button><div class="bw-draw-notice"><i class="bw-draw-picture" aria-hidden="true" hidden></i><strong class="bw-draw-result" role="status"></strong></div></div><div class="bw-crew-list"></div></section></aside><div class="bs-save-warning" role="alert"></div>';
     dialog.append(document.getElementById('bwRoundBrief').content.cloneNode(true));
     room=roomApi.create(by('.bw-view'),{state:()=>state,running:canMove,use:interact,portrait:app.portrait,joystick:by('.bw-joystick'),sprintButton:by('.bw-sprint'),
       onSprint:sprint,onUnlock(){if(canMove())pause();}});
@@ -766,8 +815,8 @@ window.BobaService=(()=>{
       }
       if(id==='begin')begin();else if(id==='pause')pause();else if(id==='close'){room.releaseLook();app.save();dialog.close();}
       else if(id==='crew'||id==='crewclose')toggleCrew(id==='crew');
-      else if(id==='hire')purchase(b.dataset.id);
-      else if(id==='duty')duty(b.dataset.id);
+      else if(id==='draw')drawWorker();
+      else if(id==='assign')assignWorker(b.dataset.id);
       else if(id==='next'&&!crewOpen)startNext();
       else if(active()){
         if(id==='use'){if(!e.detail||performance.now()-touchUseAt>650)interact();}

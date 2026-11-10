@@ -6,15 +6,15 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=12). Read the round goal and start when you are ready. Stay at the register for two seconds to write the first cat’s ticket, then grab a cup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=13). Read the round goal and start when you are ready. Stay at the register for two seconds to write the first cat’s ticket, then grab a cup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
 
 Press **E** at the tea machine and choose the base by number or click. For a Brown Sugar Milk Tea, brew Brown Sugar Tea and take it to the milk dispenser. For a Jasmine Tea, brew Jasmine Tea and skip the milk. The ticket tells you whether to add ice and which topping to use. Foam, coconut jelly and boba pearls are available from the start.
 
 After the requested ingredients are in the cup, use the lid press and then the shaker. Collect the finished drink and serve it at pickup. Each machine holds its cup and shows a timer, so you can start another drink while it works. The pickup spot is ready for the next cat as soon as you deliver.
 
-The first goal is three drinks. Earn a star for meeting the goal, another if nobody walks out, and a third if you greet and serve every guest promptly. Review your earnings or hire staff before starting the next round. **Pause** freezes guests, machines and staff.
+The first goal is three drinks. Earn a star for meeting the goal, another if nobody walks out, and a third if you greet and serve every guest promptly. Review your earnings and draw or assign a worker before starting the next round. **Pause** freezes guests, machines and staff.
 
-Use the **Crew** board to hire an order taker, milk and ice attendant, barista, toppings specialist or server. Peach moves from cleaning to milk and ice with existing training intact.
+Use **Crew** to draw workers with free hiring tickets. Start with one and earn another per completed round. Draw odds are Common 55%, Rare 30%, Epic 12% and Legendary 3%. Assign one cashier, brewer, finisher, server and host. Their bonuses shorten order or machine time, increase tips or bring cats in faster. Duplicates earn XP up to level 5. Existing hires keep their training and duty status.
 
 Use **WASD** to walk, move the mouse to look, and press **E** to interact. **Shift** sprints, **1–3** select tickets, and **Esc** frees the cursor for menus. The arrow keys also turn the camera. On touchscreens, move with the stick, drag to look, and use the action and sprint buttons. Sprinting with an open drink carries a small spill risk. Sealed cups travel safely. Park a cup on the shelf to free your hand.
 

@@ -47,7 +47,7 @@
 .bw-crew-actions {display:flex;align-items:center;gap:5px;flex-shrink:0}
 #bobaService .bw-crewboard button,#bobaService .bw-receipt button {font-size:12px;font-weight:750;padding:7px 10px;min-height:35px;border:1px solid #d0e6ca;border-radius:16px;background:#b8dec2;color:#33463c}
 #bobaService .bw-crewboard button:disabled {background:#59485a;color:#ddcfd6;border-color:#705c70}
-#bobaService .bw-crewboard [data-service=duty],#bobaService .bw-crewboard [data-service=crewclose] {background:#463749;color:#f7e3d1;border-color:#8c7183}
+#bobaService .bw-crewboard [data-service=assign],#bobaService .bw-crewboard [data-service=crewclose] {background:#463749;color:#f7e3d1;border-color:#8c7183}
 .bw-receipt>section {width:min(100%,330px);text-align:center;background:#f6e5c8;color:#4d3541;border:4px double #bd987e}
 .bw-receipt small {font:700 13px var(--body,system-ui);color:#845d65}.bw-receipt h2 {margin:6px 0}.bw-receipt p {margin:0 0 12px;font-size:14px}
 #bobaService .bs-crew-button:focus-visible,#bobaService .bw-receipt button:focus-visible {outline-color:#48a4a6}
@@ -75,7 +75,7 @@
 #bobaService .bs-ticket strong {font-family:var(--hand,"Gaegu",var(--body,system-ui));font-size:15px}
 #bobaService .bw-controls,#bobaService .bw-legend {background:#242038e8;border-color:#5c526d}
 #bobaService .bw-controls {padding:6px 8px;border-radius:999px}#bobaService .bw-guide {padding:0 4px}
-#bobaService .bw-use:not(:disabled),#bobaService .bs-paused button,#bobaService .bw-crewboard [data-service=hire]:not(:disabled),#bobaService .bw-receipt button {background:#9de6c6;color:#272337;border-color:#9de6c6}
+#bobaService .bw-use:not(:disabled),#bobaService .bs-paused button,#bobaService .bw-crewboard [data-service=draw]:not(:disabled),#bobaService .bw-receipt button {background:#9de6c6;color:#272337;border-color:#9de6c6}
 #bobaService .bw-crewboard>section {background:#211f37;border-color:#655c77}#bobaService .bw-crew-list article {border-color:#49415b}
 @media(max-width:600px){
  #bobaService .bs-head {min-height:46px;padding:5px 7px}#bobaService .bs-brand,#bobaService .bs-head-actions {gap:4px}
@@ -206,6 +206,11 @@
 .bw-machine-timer[data-machine=ice] {border-inline-start:3px solid #9bdae6}
 .bw-machine-timer[data-machine=shake] {border-inline-start:3px solid #d8acd7}
 .bw-action-pulse {font-size:11px;color:#bdeaca;font-variant-numeric:tabular-nums}
+.bw-hiring {padding:10px 0 7px;color:#f4eada}.bw-hiring p {font-size:13px;line-height:1.4;margin:0 0 8px}
+.bw-rarity-odds {display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px}.bw-rarity-odds [data-tier=Rare]{color:#98d5e3}.bw-rarity-odds [data-tier=Epic]{color:#e2b3ee}.bw-rarity-odds [data-tier=Legendary]{color:#ffd08e}
+.bw-pool{font-size:12px;margin:9px 0 13px}.bw-pool p{margin:8px 0}.bw-pool summary,.bw-staff-job summary{cursor:pointer}
+.bw-draw-notice{display:flex;align-items:center;gap:8px;min-height:5px}.bw-draw-result{font-size:13px;color:#ffdf98}.bw-draw-picture svg{display:block;width:38px;height:38px}
+.bw-staff-job {border-top:1px solid #53475f;padding:8px 2px}.bw-staff-job summary{font-size:14px}.bw-staff-job summary span{margin-left:8px;color:#ead8df}.bw-staff-job summary small{display:block;padding-left:16px;color:#b9dcc7;font-size:12px}.bw-staff-job article{margin:5px 10px 0}.bw-staff-job>small{display:block;margin:7px 0 0 15px;color:#ddd2d8}
 @media(max-width:600px) {
   .bw-recipe-card {padding:14px;gap:7px}.bw-recipe-options{gap:5px}
   #bobaService .bw-recipe-options button {min-height:44px;padding:6px;gap:6px;font-size:13px}
