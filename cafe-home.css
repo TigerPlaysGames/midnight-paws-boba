@@ -1,0 +1,91 @@
+/* Café management screens share the palette of the illustrated night shop. */
+#bobaService .ch-home {
+  --paper:#fffaf0;--ink:#32253d;--muted:#705d70;--line:#d9c8c4;--rose:#a83e62;
+  display:block;inset:0;z-index:3;padding:0;border-radius:0;overflow:auto;color:var(--ink);
+  background:radial-gradient(ellipse at 88% 0%,#ffebda 0%,transparent 36%),#f7efe3;
+  font-family:var(--body,system-ui);text-align:left;
+}
+#bobaService[data-home=true] .bs-head,#bobaService[data-home=true] .bs-work{visibility:hidden}
+.ch-shell{width:100%;max-width:1192px;margin:auto;padding:0 clamp(15px,4vw,54px) max(22px,env(safe-area-inset-bottom))}
+.ch-head,.ch-head-tools,.ch-brand,.ch-wallet,.ch-tabs,.ch-serve,.ch-portraits,.ch-small,.ch-tile-title{display:flex;align-items:center}
+.ch-head{height:76px;justify-content:space-between;gap:15px;border-bottom:1px solid var(--line)}
+#bobaService .ch-brand{border:0;padding:0;background:none;gap:10px;color:var(--ink);text-align:left;font-weight:900;font-size:19px;line-height:1}
+.ch-brand small{display:block;margin-top:4px;font-size:9px;letter-spacing:.18em;color:var(--rose)}
+.ch-logo{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;background:#f3ccb5;border:1px solid #dcb196}
+.ch-logo svg{width:42px;height:42px}
+.ch-head-tools{gap:7px}
+.ch-wallet,#bobaService .ch-settings{background:var(--paper);border:1px solid var(--line);border-radius:100px;height:40px}
+.ch-wallet{padding:0 14px;gap:7px;font-variant-numeric:tabular-nums;font-size:15px}
+.ch-wallet i{font:19px/1 Georgia;color:#a77427}
+#bobaService .ch-settings{width:40px;font-weight:900;font-size:18px;color:var(--ink)}
+.ch-tabs{gap:6px;margin:12px 0}
+#bobaService .ch-tabs button{padding:8px 17px;border:1px solid transparent;border-radius:99px;background:transparent;color:var(--muted);font-size:14px;font-weight:800}
+#bobaService .ch-tabs button[aria-current=page]{border-color:var(--ink);background:var(--ink);color:white}
+.ch-hero{position:relative;isolation:isolate;min-height:clamp(289px,39vh,455px);display:flex;align-items:center;border-radius:20px;background:#2f293e;color:#fff4df;overflow:hidden}
+.ch-picture{position:absolute;inset:0;z-index:-1;background-image:linear-gradient(90deg,#241c30f2 0%,#241c30bb 27%,#241c301c 62%,transparent 80%),url("assets/cafe-home.webp");background-size:cover;background-position:center,center 53%}
+.ch-hero-copy{max-width:54%;padding:clamp(23px,4.2vw,66px)}
+.ch-town{display:flex;align-items:center;gap:9px;margin:0 0 10px;font-size:12px;font-weight:850;letter-spacing:.1em;text-transform:uppercase;color:#ffe1b0}
+.ch-town i{width:10px;height:10px;border-radius:50%;background:var(--branch,#91c7ad);box-shadow:0 0 0 3px #ffffff28}
+.ch-hero h1,.ch-body>h1{font-family:var(--display,system-ui);font-weight:900;letter-spacing:-.055em}
+.ch-hero h1{margin:0;font-size:clamp(42px,5.2vw,76px);line-height:.99;text-wrap:balance;color:#fff5df}
+.ch-signature{margin:10px 0 26px;color:#f9e6db;font-size:16px;font-weight:650}
+.ch-serve{gap:14px}
+.ch-serve small{font-size:12px;line-height:1.4;color:#f5e4d6;font-weight:750}
+#bobaService .ch-primary{display:inline-flex;align-items:center;justify-content:space-between;gap:22px;padding:11px 17px;min-height:44px;border:0;border-radius:10px;background:#ffd0a3;color:#3c2633;font-weight:900;font-size:16px}
+#bobaService .ch-primary:hover{background:#ffe2bf}
+.ch-dashboard{margin-top:14px;display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:12px}
+#bobaService .ch-tile{min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:17px 19px;border:1px solid var(--line);border-radius:14px;color:var(--ink);text-align:left}
+.ch-tile-title{width:100%;justify-content:space-between;margin-bottom:auto;font-size:13px;font-weight:850}
+.ch-tile-title i{font:18px/1 system-ui}
+.ch-tile strong{font-size:17px;letter-spacing:-.035em}
+.ch-tile small,.ch-place span,.ch-equipment p{color:var(--muted);font-size:12px}
+.ch-crew{background:#fbe2d9}.ch-branches{background:#e1eee1}.ch-upgrades{background:#eae3ed}
+.ch-portraits{height:27px;gap:2px;margin-top:7px}.ch-portraits span,.ch-portraits svg{display:block;width:26px;height:26px}
+.ch-body>h1{margin:15px 0;font-size:clamp(32px,4vw,50px);line-height:1.1}
+.ch-caption{margin:-6px 0 16px;color:var(--muted)}
+.ch-atlas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.ch-location,.ch-equipment,.ch-options{border:1px solid var(--line);background:var(--paper);border-radius:14px}
+.ch-location{padding:16px;display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:12px;align-items:center}
+.ch-store{height:82px;position:relative;border-radius:10px;background:color-mix(in srgb,var(--branch) 70%,white);overflow:hidden;border:1px solid #78616b25}
+.ch-awning{position:absolute;top:14px;left:8px;right:8px;height:16px;border-radius:3px 3px 6px 6px;background:repeating-linear-gradient(90deg,#fff5d7 0 10px,var(--branch) 10px 20px);box-shadow:0 4px 0 #5e475137}
+.ch-door{position:absolute;left:12px;bottom:0;width:20px;height:40px;border:3px solid #674c57;border-bottom:0;border-radius:8px 8px 0 0;background:#ffdcab}
+.ch-store i{position:absolute;right:11px;bottom:16px;width:32px;height:24px;text-align:center;color:#4b3441;background:#ffedbd;border:2px solid #775764;border-radius:3px;font:bold 15px/21px serif}
+.ch-place small{font-size:10px;color:var(--rose);font-weight:850;text-transform:uppercase;letter-spacing:.08em}
+.ch-place h3,.ch-equipment h3,.ch-backup h3{margin:4px 0;font-size:18px;line-height:1.1;letter-spacing:-.035em}
+.ch-place p,.ch-equipment p{margin:4px 0;font-size:13px}
+#bobaService .ch-small{justify-content:center;border:1px solid #796775;border-radius:8px;background:var(--ink);color:#fff5ea;font-weight:800;font-size:12px;min-height:40px;padding:6px 12px}
+#bobaService .ch-small:disabled{background:#ede4db;border-color:#dfd2ca;color:#6d5a66}
+.ch-upgrade-list,.ch-options{display:grid;gap:8px;max-width:730px}
+.ch-equipment{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:18px}
+.ch-level{width:49px;height:49px;display:grid;place-items:center;border-radius:13px;background:#e0edda;color:#345646;font-size:23px;font-weight:900}
+.ch-options{padding:15px}
+#bobaService .ch-options>[role=switch]{display:flex;justify-content:space-between;align-items:center;background:none;border:0;border-bottom:1px solid var(--line);padding:9px 4px;color:var(--ink);text-align:left}
+.ch-options [role=switch] span{padding:3px 11px;border-radius:20px;background:#e9dfdc;color:#6d5469;font-size:12px;font-weight:800}
+.ch-options [aria-checked=true] span{background:#d2e9d4;color:#315e48}
+.ch-backup{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:5px 0}
+.ch-backup h3{width:100%}.ch-import-result{color:var(--rose)}
+.ch-note{position:sticky;bottom:8px;margin:0 auto;text-align:center;width:fit-content;color:var(--paper);background:var(--ink);border-radius:8px;font-size:13px}
+.ch-note:not(:empty){padding:7px 12px;margin:12px auto 0}
+#bobaService .ch-home :focus-visible{outline:3px solid #bb5531;outline-offset:2px}
+@media(max-width:790px){
+ .ch-location{grid-template-columns:65px 1fr}.ch-store{height:65px}.ch-location .ch-small{grid-column:1/-1}
+}
+@media(max-width:620px){
+ .ch-head{height:61px}.ch-shell{padding-inline:13px}.ch-tabs{justify-content:space-between;margin:8px 0}
+ #bobaService .ch-tabs button{padding:7px 12px;font-size:13px}.ch-hero{min-height:280px;border-radius:14px;align-items:flex-end}
+ .ch-picture{background-image:linear-gradient(0deg,#291f30f2 0%,#2920329c 38%,#27203005 78%),url("assets/cafe-home.webp");background-position:center,64% center}
+ .ch-hero-copy{padding:21px;max-width:100%}.ch-hero h1{font-size:40px}.ch-signature{margin:6px 0 15px;font-size:13px}
+ .ch-town{font-size:10px;margin:0 0 6px}.ch-dashboard{grid-template-columns:1fr 1fr;gap:8px;margin-top:9px}
+ #bobaService .ch-tile{padding:13px}.ch-crew{grid-column:1/-1;position:relative}.ch-crew .ch-portraits{position:absolute;right:22px;bottom:17px}
+ .ch-tile strong{font-size:15px}.ch-tile-title{margin-bottom:10px}.ch-atlas{grid-template-columns:1fr}
+ .ch-location{grid-template-columns:63px 1fr auto;padding:10px;gap:8px}.ch-location .ch-small{grid-column:auto}
+ .ch-place h3{font-size:16px}#bobaService .ch-small{padding:5px 8px}.ch-head-tools{gap:5px}
+}
+@media(max-height:520px) and (min-width:620px){
+ .ch-head{height:49px}.ch-tabs{margin:5px 0}.ch-hero{min-height:202px}.ch-hero-copy{padding:20px 30px}
+ .ch-hero h1{font-size:38px}.ch-signature{margin:5px 0 10px}.ch-dashboard{margin-top:8px}
+}
+@media(prefers-reduced-motion:no-preference){
+ .ch-primary,.ch-tile,.ch-small{transition:transform .14s ease,filter .14s ease}
+ #bobaService .ch-tile:hover{transform:translateY(-2px);filter:brightness(1.025)}
+}

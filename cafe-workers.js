@@ -71,7 +71,7 @@ window.BobaWorkers = (() => {
       record.xp++;
       if (record.xp===record.level) { record.level++; record.xp=0; }
     }
-    if (!book.equipped[card.job]) book.equipped[card.job]=id;
+    if (!previousLevel && !book.equipped[card.job]) book.equipped[card.job]=id;
     book.last=id;
     return {card,record,previousLevel};
   }

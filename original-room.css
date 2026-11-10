@@ -39,6 +39,16 @@
 .bw-slate { align-content: center; gap: 12px; background: #363c39; font: bold 13px/1.3 system-ui, sans-serif; }
 .bw-slate b { font-size: 23px; color: #bbddc5; }
 .bw-person.bw-staff { transition: transform .45s ease-out; }
+.bw-view[data-renderer="css"] .bw-frontwall {border-color:var(--shop-trim,#ceba9e)}
+.bw-view[data-renderer="css"] .bw-eq-tea {border-top-color:var(--shop-trim,#91c7ad)}
+.bw-shop-ornaments{display:flex;justify-content:space-around;align-items:start}
+.bw-shop-ornaments i{position:relative;display:block;margin-top:14px;width:34px;height:30px;border-radius:50%;background:#ce6859;border-block:3px solid #dcb578}
+.bw-shop-ornaments i::before{content:"";position:absolute;left:50%;bottom:100%;height:14px;width:2px;background:#795749}
+.bw-shop-ornaments[data-branch=kyoto]{border-top:4px solid #805c46;gap:4px}
+.bw-shop-ornaments[data-branch=kyoto] i{margin:0;height:49px;width:30%;border-radius:0;background:#668369;border:0;border-bottom:3px double #e7dcc1}
+.bw-shop-ornaments[data-branch=kyoto] i::before{display:none}
+.bw-shop-ornaments[data-branch=bangkok] i{clip-path:polygon(50% 0,98% 42%,50% 100%,2% 42%);background:#e9bd72;border:0}
+.bw-shop-ornaments[data-branch=seoul] i{width:27px;height:27px;background:#f0adbc;border:0;box-shadow:-8px 5px #e9a4b1,8px 5px #e9a4b1,0 11px #efa9b7}
 .bw-person .bw-cat-face { inset: 0; width: 100%; height: 100%; }
 .bw-person.bw-staff::after {
   content: ""; position: absolute; left: 29%; right: 29%; bottom: 5%; height: 17%;

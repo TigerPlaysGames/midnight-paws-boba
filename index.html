@@ -13,11 +13,14 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=14">
-<link rel="stylesheet" href="original-room.css?v=14">
-<script src="cafe-workers.js?v=14"></script>
-<script src="cafe-room.js?v=14"></script>
-<script src="cafe-service.js?v=14"></script>
+<link rel="stylesheet" href="cafe-service.css?v=15">
+<link rel="stylesheet" href="original-room.css?v=15">
+<script src="cafe-workers.js?v=15"></script>
+<link rel="stylesheet" href="cafe-home.css?v=15">
+<script src="cafe-career.js?v=15"></script>
+<script src="cafe-home.js?v=15"></script>
+<script src="cafe-room.js?v=15"></script>
+<script src="cafe-service.js?v=15"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -846,7 +849,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
   <div class="mtitle">Midnight Paws<small>boba café</small></div>
   <div class="mpanel">
     <button class="btn startbtn" id="playBtn" type="button">Start</button>
-    <button type="button" id="marketBtn">Midnight Market · Cooking &amp; Crew</button>
+    <button type="button" id="marketBtn" hidden></button>
     <div class="mrow" id="mrowMain">
       <button class="mbtn" id="townBtn" type="button"><b>Map</b><small>Shops</small></button>
       <button class="mbtn" id="designBtn" type="button"><b>Customize Café</b><small>Lv 5</small></button>
@@ -861,20 +864,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
 </div>
 </div>
 <dialog id="bobaService" aria-label="Midnight Paws boba café"></dialog>
-<template id="bwRoundBrief">
-  <aside class="bw-briefing" hidden aria-labelledby="bwRoundTitle">
-    <section class="bw-round-card">
-      <p class="bw-round-kicker">Midnight Paws Boba</p>
-      <h2 class="bw-round-title" id="bwRoundTitle">Round 1</h2>
-      <p class="bw-round-goal"></p>
-      <p class="bw-round-saved" hidden></p>
-      <div class="bw-round-actions">
-        <button type="button" data-service="begin">Start round</button>
-        <button type="button" data-service="crew">Manage crew</button>
-      </div>
-    </section>
-  </aside>
-</template>
+
 <dialog id="marketDialog" aria-label="Midnight Market restaurants"><header class="mk-nav"><button class="mk-back" type="button">Back to café</button><span class="mk-wallet" aria-label="Available funds"></span></header><div class="mk-body"></div><div class="mk-message" role="status"></div></dialog>
 <div class="modal top" id="backupPanel" hidden><div class="card" role="dialog" aria-label="Save backups">
   <button class="close" data-close type="button" aria-label="Close">×</button>
@@ -1159,6 +1149,7 @@ function tone(f,t,d,v,type,f2,dest){const o=AC.createOscillator(),g=AC.createGai
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.006);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g).connect(dest||sfxOut);o.start(t);o.stop(t+d+.03);}
 const arp=(notes,gap,dur,vol,type)=>{const t=AC.currentTime;notes.forEach((m,i)=>tone(mtof(m),t+i*gap,dur,vol,type||'triangle'));};
 const SFX={
+  shortPour(){const t=AC.currentTime;const filter=noise(t,.64,1150,'bandpass',.11,sfxOut,1.4);filter.frequency.exponentialRampToValueAtTime(700,t+.6);},
   click(){const t=AC.currentTime;tone(620,t,.07,.16,'sine',980);noise(t,.02,3000,'highpass',.05,sfxOut);},
   nope(){const t=AC.currentTime;tone(240,t,.1,.14,'triangle');tone(200,t+.08,.12,.12,'triangle');},
   blip(v){const t=AC.currentTime;tone(v*(.92+Math.random()*.28),t,.05,.075,'triangle');tone(v*2*(.95+Math.random()*.1),t,.025,.02,'sine');},
@@ -5760,6 +5751,7 @@ $('#backupFile').onchange=async event=>{
     unreadableSave=true; // Keep the outgoing tab from checkpointing over the imported café.
     location.reload();
   }catch(error){msg.textContent='Could not restore this file. Your current café is still here.';}
+  const report=document.querySelector('.ch-import-result');if(report)report.textContent=msg.textContent;
 };
 
 $('#marketBtn').disabled=!window.MidnightMarket;
@@ -5809,7 +5801,11 @@ if(window.BobaService){
   window.BobaService.init({
     state:S,drinks:cafeDrinks,ingredients:ING,tops:TOPS,coats:COATS,names:NAMES,save,
     portrait:id=>catSVG(COATS.find(c=>c.id===id),'happy','none'),
-    enter(){history.replaceState(null,'','#cafe');initAudio();applyAudio();},
+    enter(){history.replaceState(null,'','#cafe');},
+    audioStart(){initAudio();applyAudio();},
+    sound:sfx,
+    toggleSound(id){if(Object.hasOwn(S.audio,id)){S.audio[id]=!S.audio[id];applyAudio();save();}},
+    backup(kind){$('#backupMsg').textContent='';if(kind==='export')$('#downloadSave').click();else $('#chooseSave').click();},
     reward(order,workers){
       const recipe=DRINKS.find(d=>d.id===order.drink),rare=!!COATS.find(c=>c.id===order.coat).rare;
       S.combo++;S.best=Math.max(S.best,S.combo);
@@ -5818,7 +5814,7 @@ if(window.BobaService){
       const scale=mult()*(rare?3:1)*(1+.25*(S.rebirths||0));
       const earnings=Math.round((price+tip)*scale);
       const paidTip=earnings-Math.round(price*scale);
-      const pay=earnings+window.BobaWorkers.bonusTip(workers,paidTip);
+      const pay=earnings+window.BobaWorkers.bonusTip(workers,paidTip)+window.BobaCareer.extraTip(S.cafeService);
       S.money+=pay;S.earned+=pay;S.served++;S.perfect++;
       if(!S.met.includes(order.coat))S.met.push(order.coat);
       S.fresh=S.fresh.filter(id=>id!==order.drink&&id!==order.top);
@@ -5836,7 +5832,7 @@ renderShelf();renderMe();renderMenuScreen();applyAudio();
 const fromLauncher=document.referrer && new URL(document.referrer).pathname.endsWith('/play.html');
 if(location.hash==='#cafe'||(location.hash==='#market'&&fromLauncher)){
   history.replaceState(null,'','#cafe');$('#playBtn').click();
-}else if(location.hash==='#market'&&!$('#marketBtn').disabled)$('#marketBtn').click();
+}else if(window.BobaService)$('#playBtn').click();
 })();
 </script>
 

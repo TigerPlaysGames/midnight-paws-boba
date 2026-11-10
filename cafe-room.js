@@ -198,9 +198,40 @@ window.BobaRoom = (() => {
     box(menu,walnut,0,0,0,1.69,1.94,.10);
     box(menu,material('#323a39'),0,0,.062,1.60,1.85,.040);
     label(menu,'MENU',1.14,.32,0,.60,.085,{bg:'#353c3a',fg:'#c9e5ce',border:'#353c3a'});
-    ['Classic Milk Tea','Jasmine Tea','Brown Sugar Milk Tea'].forEach((name,i)=>label(menu,name,1.46,.20,0,.20-i*.31,.086,{bg:'#353c3a',fg:'#f5e6d0',border:'#353c3a'}));
+    ['Classic Milk Tea','Jasmine Tea'].forEach((name,i)=>label(menu,name,1.46,.20,0,-.11-i*.31,.086,{bg:'#353c3a',fg:'#f5e6d0',border:'#353c3a'}));
     const brand=group(scene,0,3.43,-10.81);
-    label(brand,'Midnight Paws Boba',3.22,.44,0,0,.052,{script:true,bg:'#3a4137',fg:'#f6e8c8',border:'#997754'});
+    let brandLabel,houseDrink,branchName;
+    const ornaments={};
+    for(const id of ['taipei','kyoto','bangkok','seoul']){
+      const trim=group(scene,-1.1,2.99,-6.55);
+      ornaments[id]=trim;trim.visible=false;
+      for(let i=0;i<3;i++){
+        const x=(i-1)*.63;
+        if(id==='kyoto'){
+          if(i===1)box(trim,walnut,0,.12,0,2.06,.04,.05);
+          box(trim,material(i===1?'#456955':'#668369'),x,-.09,0,.57,.43,.037);
+          box(trim,cream,x,-.21,.024,.43,.018,.012);
+        }else{
+          const cord=.08+(i%2)*.13;
+          cyl(trim,walnut,x,-cord/2,0,.011,.011,cord,7);
+          const y=-cord-.14;
+          if(id==='seoul'){
+            for(let petal=0;petal<5;petal++){
+              const a=petal*Math.PI*2/5;
+              ball(trim,rose,x+Math.sin(a)*.083,y+Math.cos(a)*.083,0,.086,.085,.055);
+            }
+            ball(trim,gold,x,y,.052,.06,.06,.03);
+          }else if(id==='taipei'){
+            ball(trim,material('#ce6859'),x,y,0,.17,.14,.14);
+            cyl(trim,gold,x,y+.13,0,.086,.11,.03,12);
+            cyl(trim,gold,x,y-.14,0,.086,.066,.035,12);
+          }else{
+            mesh(trim,new T.OctahedronGeometry(.19),material(i===1?'#eda8ad':'#e9bd72'),x,y,0);
+            box(trim,gold,x,y-.24,0,.024,.14,.02);
+          }
+        }
+      }
+    }
     for(const [coat,x,z,yaw] of [['orange',-4.07,-7.44,.98],['brown',2.14,-8.27,-1.2]]){
       const guest=art.cat(coat,null);guest.g.position.set(x,.44,z);guest.g.rotation.y=yaw;guest.g.scale.setScalar(1.05);scene.add(guest.g);
     }
@@ -399,6 +430,14 @@ window.BobaRoom = (() => {
     }
     function paint(items){
       lastItems=items;
+      const branch=items.branch;
+      if(branch&&branch.name!==branchName){
+        branchName=branch.name;release(brandLabel);release(houseDrink);
+        brandLabel=label(brand,branch.name,3.22,.44,0,0,.052,{script:true,bg:'#3a333c',fg:'#fff1d8',border:branch.color});
+        houseDrink=label(menu,branch.signature,1.46,.20,0,.20,.086,{bg:'#353c3a',fg:'#f5e6d0',border:branch.color});
+        mint.color.set(branch.color);wall.color.set(art.wall()).lerp(new T.Color(branch.color),.27);
+        for(const [id,ornament] of Object.entries(ornaments))ornament.visible=id===branch.id;
+      }
       for(const s of stations){
         const f=fixtures.get(s.id),v=items[s.id];
         f.root.visible=!!v;
@@ -556,8 +595,9 @@ window.BobaRoom = (() => {
     plane(0,0,-3.5,12,15,0,'bw-floor','',90);
     plane(0,3.82,-3.5,12,15,0,'bw-ceiling','',-90);
     plane(0,1.92,-10.96,12,3.84,0,'bw-wall bw-frontwall','<div class="bw-window"><i class="bw-moon"></i><i class="bw-skyline"></i><i class="bw-panes"></i></div><div class="bw-door"><b></b></div>');
-    plane(0,3.43,-10.81,3.28,.46,0,'bw-hanging-sign','Midnight Paws Boba');
-    plane(4.50,2.03,-6.28,1.67,1.94,-22,'bw-slate','<b>MENU</b><span>Classic Milk Tea</span><span>Jasmine Tea</span><span>Brown Sugar Milk Tea</span>');
+    const shopSign=plane(0,3.43,-10.81,3.28,.46,0,'bw-hanging-sign','Midnight Paws Boba');
+    const ornaments=plane(-1.1,2.82,-6.55,2.05,.57,0,'bw-shop-ornaments','<i></i><i></i><i></i>');
+    const menuBoard=plane(4.50,2.03,-6.28,1.67,1.94,-22,'bw-slate','<b>MENU</b><span></span><span>Classic Milk Tea</span><span>Jasmine Tea</span>');
     plane(0,1.81,3.78,12,3.62,180,'bw-wall bw-backwall');
     plane(-5.93,1.92,-3.5,15,3.84,90,'bw-wall bw-westwall');
     plane(5.93,1.92,-3.5,15,3.84,-90,'bw-wall bw-eastwall');
@@ -581,6 +621,13 @@ window.BobaRoom = (() => {
     const idleSign={milk:'Milk',ice:'Ice',top:'Scoop',lid:'Seal',shake:'Shake'};
     function paintFallback(items) {
       fallbackMeters.clear();
+      if(items.branch){
+        shopSign.textContent=items.branch.name;
+        shopSign.style.borderColor=items.branch.color;
+        menuBoard.querySelector('span').textContent=items.branch.signature;
+        view.style.setProperty('--shop-trim',items.branch.color);
+        ornaments.dataset.branch=items.branch.id;
+      }
       for(const s of stations){
         const i=items[s.id],el=points.get(s.id);
         if(!i){el.hidden=true;continue;}
