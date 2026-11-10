@@ -6,11 +6,13 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=9). Read the round goal and start when you are ready. Take the first cat’s ticket at the register. You can take the next cat’s order while the first waits at the pickup counter. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=10). Read the round goal and start when you are ready. Take the first cat’s ticket at the register. Follow the counter from the register past the cups, tea machine, boba and lid press to pickup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
 
-Grab a cup and follow the ticket to its brewer. Add the requested topping, seal the lid, then bring the drink and any food to the same pickup counter. The first goal is three complete orders. Earn a star for meeting the goal, another if nobody walks out, and a third if you greet and serve every guest promptly. Review your earnings or hire staff before starting the next round. **Pause** freezes guests, machines and staff.
+Press **E** at the cup shelf, then **E** at the tea machine. Press the number beside a tea or click its name. The machine holds and fills the cup while you move on. Its two spouts let you start a second order before the first finishes. Collect a ready cup with an empty hand and add any requested boba. When you have several toppings, choose one with the same number or click controls. Leave the cup in the lid press, then collect and serve the sealed drink at pickup.
 
-Use the **Crew** board to spend tips on an order taker, cleaner, barista, cook or server. Each worker handles that job during service. You can train workers and fill the other roles yourself.
+The first goal is three drinks. Earn a star for meeting the goal, another if nobody walks out, and a third if you greet and serve every guest promptly. Review your earnings or hire staff before starting the next round. **Pause** freezes guests, machines and staff.
+
+Use the **Crew** board to spend tips on an order taker, cleaner, barista, toppings specialist or server. Bao handles toppings with any training already earned as a cook. You can train workers and fill the other roles yourself.
 
 Use **WASD** to walk, move the mouse to look, and press **E** to interact. **Shift** sprints, **1–3** select tickets, and **Esc** frees the cursor for menus. The arrow keys also turn the camera. On touchscreens, move with the stick, drag to look, and use the action and sprint buttons. Sprinting with an open drink carries a small spill risk. Sealed cups travel safely. Park a cup on the shelf to free your hand.
 

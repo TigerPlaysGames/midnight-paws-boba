@@ -13,10 +13,10 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=9">
-<link rel="stylesheet" href="original-room.css?v=9">
-<script src="cafe-room.js?v=9"></script>
-<script src="cafe-service.js?v=9"></script>
+<link rel="stylesheet" href="cafe-service.css?v=10">
+<link rel="stylesheet" href="original-room.css?v=10">
+<script src="cafe-room.js?v=10"></script>
+<script src="cafe-service.js?v=10"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -869,10 +869,10 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
       <p class="bw-round-saved" hidden></p>
       <ol class="bw-round-route" aria-label="Service route">
         <li><b>Register</b><span>Ask the next cat in line.</span></li>
-        <li><b>Kitchen</b><span>Pour, top and seal. Cook any food on the ticket.</span></li>
-        <li><b>Pickup</b><span>Bring every finished item to the pickup counter.</span></li>
+        <li><b>Tea bar</b><span><span class="bw-round-desktop">Press <kbd>E</kbd> at Cups, then <kbd>E</kbd> at Tea.</span><span class="bw-round-touch">Use the action button at Cups, then at Tea.</span> Choose a number or tap a tea.</span></li>
+        <li><b>Pickup</b><span>Scoop the requested topping, seal the lid, then serve the drink.</span></li>
       </ol>
-      <p class="bw-round-tip">Quick greetings and deliveries earn bigger tips.</p>
+      <p class="bw-round-tip">Watch the machine timers. Finished cups wait for you.</p>
       <div class="bw-round-actions">
         <button type="button" data-service="begin">Start round</button>
         <button type="button" data-service="crew">Manage crew</button>
@@ -4115,8 +4115,8 @@ function loopShop(now){
 
 /* ================= v10: guidebook ================= */
 const GUIDE=[
- ['Café rounds','<p class="gp">Read the round goal and press <b>Start round</b> when you are ready. Use <b>WASD</b> to walk, move the mouse to look and press <b>E</b> to interact. <b>Esc</b> releases the mouse for menus. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Take the first cat’s order at the <b>register</b>. You can greet the next cat before making the first drink. Cats lose patience while waiting to order and while waiting for pickup.</li><li>Take a cup. Use the brewer shown on the ticket guide, add the topping and seal the lid. Hold <b>Shift</b> to sprint. An open drink can spill, so seal it before running when you can.</li><li>Bring drinks and food to the <b>pickup counter</b>. Clear the counter when it needs cleaning. Use <b>1–3</b> to choose a ticket.</li><li>Serve three complete orders to finish your first round. Use the break to review your earnings or hire a worker.</li></ol>'],
- ['Café workers','<p class="gp">Spend tips on the job where you want help. The cashier writes tickets at the register, the barista makes drinks, the cook prepares food, the server carries finished items to pickup, and the cleaner clears the counter.</p><p class="gp">You can handle any unstaffed job yourself. Your hires and training carry over to later rounds.</p>'],
+ ['Café rounds','<p class="gp">Press <b>Start round</b> when you are ready. Use <b>WASD</b> to move, the mouse to look and <b>E</b> to use the station in front of you. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Take a cat’s order at the register. Press <b>E</b> at the cup shelf, then <b>E</b> at the tea machine. Press the number next to a tea or click its name.</li><li>The machine keeps your cup while it fills. Take another ticket or start a second cup. Come back with an empty hand when the timer says <b>Ready</b>.</li><li>Add the requested boba, then put the cup in the lid press. Collect it when sealed and carry it to the pickup counter. Clear used trays there.</li><li>Serve three cats to finish round one. Quick greetings and deliveries earn bigger tips. Hold <b>Shift</b> to sprint. An open drink can spill.</li></ol>'],
+ ['Café workers','<p class="gp">Spend tips on the job where you want help. The cashier writes tickets, the barista brews tea and seals cups, the toppings specialist adds boba, the server delivers drinks, and the cleaner clears pickup trays.</p><p class="gp">You can handle any unstaffed job yourself. Your hires and training carry over to later rounds.</p>'],
  ['Explore controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
   <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
  ['Shops',`<p class="gp">Press <span class="gk">Shop</span> and pick a store. You’ll arrive on the sidewalk, so walk in through the door.</p>
@@ -5798,7 +5798,7 @@ if(window.BobaService){
       const recipe=DRINKS.find(d=>d.id===order.drink),rare=!!COATS.find(c=>c.id===order.coat).rare;
       S.combo++;S.best=Math.max(S.best,S.combo);
       const serviceQuality=Math.min(order.greetingQuality??1,order.left/order.limit);
-      const base=recipe.price+(order.top?1:0)+(order.dessert?4:0)+Math.round(4*serviceQuality);
+      const base=recipe.price+(order.top?1:0)+Math.round(4*serviceQuality);
       const pay=Math.round(base*mult()*(rare?3:1)*(1+.25*(S.rebirths||0)));
       S.money+=pay;S.earned+=pay;S.served++;S.perfect++;
       if(!S.met.includes(order.coat))S.met.push(order.coat);

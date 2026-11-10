@@ -114,6 +114,11 @@
 .bw-round-route li {display:grid; grid-template-columns:72px 1fr; align-items:baseline; gap:8px; padding:4px 0}
 .bw-round-route b {color:#3f6659; font-weight:800}
 .bw-round-route span {color:#464149}
+.bw-round-route kbd {font:750 .9em var(--body,system-ui);color:#385f51}
+.bw-round-route .bw-round-touch {display:none}
+@media(pointer:coarse) {
+  .bw-round-route .bw-round-desktop {display:none}.bw-round-route .bw-round-touch {display:inline}
+}
 .bw-round-tip {margin:6px 0 17px; font-size:12px; color:#655244}
 .bw-round-actions {display:flex; flex-wrap:wrap; align-items:center; gap:8px}
 #bobaService .bw-round-actions button {min-height:44px; border:1px solid #35624f; border-radius:10px; padding:7px 17px; background:#315e4e; color:#fff9eb; font-weight:800}
@@ -150,4 +155,60 @@
   .bw-round-route li {grid-template-columns:51px 1fr;gap:4px}
   .bw-round-tip {grid-area:tip;font-size:11px}
   .bw-round-actions {grid-area:actions;margin-top:6px}
+}
+
+.bw-recipe-panel {
+  position:absolute; inset:0; z-index:5; display:grid; place-items:center; overflow:auto;
+  padding:14px; background:#17162993; color:#302b34;
+}
+.bw-recipe-card {
+  width:min(100%,450px); max-height:100%; display:flex; flex-direction:column; gap:9px;
+  overflow:auto; padding:20px; border:1px solid #c1a17c; border-top:6px solid #477364;
+  border-radius:16px; background:#fcf1db; box-shadow:0 10px 35px #14122177;
+}
+.bw-recipe-card :is(h2,p) {margin:0}
+.bw-recipe-card h2 {font:700 clamp(23px,4vw,29px)/1.1 var(--display,system-ui); letter-spacing:-.035em}
+.bw-recipe-card header {display:flex; align-items:start; justify-content:space-between; gap:10px}
+.bw-recipe-ticket {font-size:14px; color:#664831; font-weight:700}
+.bw-recipe-options {display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; min-height:0; overflow-y:auto; padding:3px}
+#bobaService .bw-recipe-options button {
+  display:flex;align-items:center;gap:9px;text-align:left;min-height:49px;padding:7px 9px;
+  background:#fff8e9;border:1px solid #bfae93;border-radius:9px;color:#343137;font-weight:750;line-height:1.2;
+}
+#bobaService .bw-recipe-options button[data-requested=true] {background:#dfedda;border-color:#60856f}
+#bobaService .bw-recipe-options button:hover {border-color:#355f50;box-shadow:inset 0 0 0 1px #355f50}
+.bw-recipe-options kbd {
+  display:grid;place-items:center;flex:none;min-width:25px;height:25px;padding-inline:3px;
+  border:1px solid #a09c88;border-bottom-width:2px;border-radius:5px;color:#4d5449;background:#fffaeb;font:bold 13px/1 system-ui;
+}
+#bobaService .bw-recipe-close {min-height:36px;padding:5px 12px;align-self:start;border:1px solid #a8a28c;border-radius:8px;background:transparent;color:#4c4b43;font-weight:700}
+.bw-recipe-pages {display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:#625042}
+#bobaService .bw-recipe-pages button {min-height:34px;padding:5px 10px;border:1px solid #a8a28c;border-radius:8px;background:#f5e5c9;color:#394d43;font-weight:750}
+#bobaService .bw-recipe-pages button:disabled {opacity:.5}
+#bobaService .bw-recipe-card button:focus-visible {outline:3px solid #a35931;outline-offset:0}
+.bw-machine-timers {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:3px 5px;font-variant-numeric:tabular-nums}
+.bw-machine-timers:not(:empty) {margin-top:5px}
+.bw-machine-timers:has(> :only-child) {grid-template-columns:minmax(0,1fr)}
+.bw-machine-timer {
+  min-width:0;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:1px 5px;
+  padding:3px 5px;border-radius:5px;background:#343048;color:#fff3dd;line-height:1.15;
+}
+.bw-machine-timer strong {font-size:11px;font-weight:750;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bw-machine-timer small {font-size:10px;color:#ffe3ac;white-space:nowrap}
+.bw-machine-timer meter {grid-column:1/-1;width:100%;height:4px;appearance:none;border:0;background:#665c6b;border-radius:2px}
+.bw-machine-timer meter::-webkit-meter-bar {height:4px;border:0;background:#665c6b;border-radius:2px}
+.bw-machine-timer meter::-webkit-meter-optimum-value {background:#f0c584;border-radius:2px}
+.bw-machine-timer meter::-moz-meter-bar {background:#f0c584;border-radius:2px}
+.bw-machine-timer[data-ready=true] {background:#315b4f}
+.bw-machine-timer[data-ready=true] small {font-weight:bold;color:#d0f6d8}
+.bw-machine-timer[data-ready=true] meter::-webkit-meter-optimum-value {background:#ace2bf}
+.bw-action-pulse {font-size:11px;color:#bdeaca;font-variant-numeric:tabular-nums}
+@media(max-width:600px) {
+  .bw-recipe-card {padding:14px;gap:7px}.bw-recipe-options{gap:5px}
+  #bobaService .bw-recipe-options button {min-height:44px;padding:6px;gap:6px;font-size:13px}
+  .bw-machine-timer{padding:3px 4px;gap:1px 3px}.bw-machine-timer strong,.bw-machine-timer small{font-size:10px}
+}
+@media(max-height:470px) {
+  .bw-recipe-panel {padding:6px}.bw-recipe-card{padding:10px 14px;gap:4px}
+  .bw-recipe-card h2{font-size:20px}#bobaService .bw-recipe-options button{min-height:35px}
 }

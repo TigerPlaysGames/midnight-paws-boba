@@ -2,16 +2,13 @@
 window.BobaRoom = (() => {
   'use strict';
   const unit=120, eye=1.67, reach=1.62;
-  const stations=[
-    {id:'line',x:-1.55,z:-2.75,angle:0},{id:'pickup',x:1.55,z:-2.75,angle:0},
-    {id:'dessert',x:-3.95,z:-1.15,angle:90},{id:'rack',x:-3.95,z:1.30,angle:90},
-    {id:'tea0',x:-2.1,z:2.65,angle:180},{id:'tea1',x:0,z:2.65,angle:180},{id:'tea2',x:2.1,z:2.65,angle:180},
-    {id:'top',x:3.95,z:1.30,angle:-90},{id:'lid',x:3.95,z:-1.15,angle:-90}
-  ];
+  const counterZ=-2.75;
+  const stations=[['line',-2.65],['rack',-1.65],['tea',-.39],['top',.85],['lid',1.72],['pickup',2.68]]
+    .map(([id,x])=>({id,x,z:counterZ,angle:0}));
   const spot=id=>stations.find(s=>s.id===id);
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const wrap=r=>Math.atan2(Math.sin(r),Math.cos(r));
-  const spawn=()=>({x:-.90,z:-1.36,yaw:-.27,pitch:-.075});
+  const spawn=()=>({x:-3.28,z:-1.39,yaw:.66,pitch:-.16});
   const bounded=p=>p && Number.isFinite(p.x)&&Math.abs(p.x)<=3.38 && Number.isFinite(p.z)&&Math.abs(p.z)<=2.04 &&
     Number.isFinite(p.yaw)&&Math.abs(p.yaw)<=Math.PI+.0001 && Number.isFinite(p.pitch)&&p.pitch>=-.6301&&p.pitch<=.5701;
   function direction(p,id) {
@@ -22,9 +19,29 @@ window.BobaRoom = (() => {
   function nearest(p,active) {
     return stations.filter(s=>active(s.id)).map(s=>direction(p,s.id))
       .filter(n=>n.distance<=reach && Math.abs(n.angle)<.71)
-      .sort((a,b)=>(a.distance+a.angle*a.angle)-(b.distance+b.angle*b.angle))[0]?.id || null;
+      .sort((a,b)=>(Math.abs(a.angle)+a.distance*.12)-(Math.abs(b.angle)+b.distance*.12))[0]?.id || null;
   }
   const radians=degrees=>degrees*Math.PI/180;
+  function workClock(job,state){
+    if(!job)return null;
+    const cup=state?.orders?.find(order=>order.id===job.jobId)?.cup;
+    const duration=cup?.duration||job.total||1;
+    const left=job.ready?0:Math.max(0,cup?.left??job.left??0);
+    return {left,progress:job.ready?1:clamp(1-left/duration,0,1)};
+  }
+  function machineReadout(job,clock){
+    if(!job||!clock)return '';
+    return (job.caption?job.caption+' ':job.jobId?'#'+job.jobId+' ':'')+(job.ready?'Ready':clock.left.toFixed(1)+'s');
+  }
+  function counterTask(id,state){
+    if(id==='pickup'&&state?.job?.kind==='clean')return {caption:'Wipe',left:state.job.left};
+    const roles=id==='line'?['cashier']:['cleaner','server'];
+    for(const role of roles){
+      const task=state?.staff?.[role]?.task;
+      if(task)return {caption:{take:'Order',wipe:'Wipe',serveCup:'Serve'}[task.kind],left:task.left};
+    }
+    return null;
+  }
   function actors(items) {
     const people=[];
     for(const id of ['line','pickup']){
@@ -37,9 +54,9 @@ window.BobaRoom = (() => {
       }
     }
     for(const worker of items.crew||[]){
-      const s=spot(worker.station)||spot('line'),a=radians(s.angle);
+      const s=spot(worker.station)||spot('line');
       people.push({key:'staff:'+worker.role,name:worker.name,coat:worker.coat,apron:'#91d9bb',working:worker.working,
-        x:s.x+Math.cos(a)*.72+Math.sin(a)*.55,z:s.z-Math.sin(a)*.72+Math.cos(a)*.55,y:.03,yaw:a+Math.PI*.85});
+        x:s.x+(s.id==='pickup'?-.56:.48),z:counterZ-.84,y:.1,yaw:.08});
     }
     return people;
   }
@@ -144,9 +161,9 @@ window.BobaRoom = (() => {
       box(scene,walnut,x,.48,z,w,.96,d);box(scene,cream,x,.99,z,w+.10,.085,d+.11);
       box(scene,wood,x,.47,z,w+.045,.82,d+.045);
     }
-    counter(0,-3.07,7.9,.75);counter(-4.43,0,1.02,5.48);counter(4.43,0,1.02,5.48);counter(0,3.17,9.76,.93);
-    for(let x=-3.57;x<3.75;x+=.70)box(scene,walnut,x,.48,-2.678,.025,.79,.012);
-    box(scene,mint,0,.76,-2.665,7.76,.045,.025);
+    counter(0,-3.07,6.75,.85);
+    for(let x=-3.12;x<3.25;x+=.68)box(scene,walnut,x,.48,-2.615,.025,.79,.012);
+    box(scene,mint,0,.76,-2.607,6.62,.035,.018);
     for(const x of [-2.4,.05,2.55]){
       const lamp=group(scene,x,0,-3.38);
       cyl(lamp,dark,0,3.50,0,.012,.012,.73,6);
@@ -187,35 +204,72 @@ window.BobaRoom = (() => {
     const register=spot('line'),pass=spot('pickup');
     for(const s of [register,pass]){
       const stool=art.item('stool');stool.position.set(s.x,0,-4.08);scene.add(stool);
-      box(scene,s.id==='line'?mint:gold,s.x,1.038,-3.07,1.80,.016,.62);
-      const plaque=group(scene,s.x,.66,-2.654);
-      label(plaque,s.id==='line'?'ORDERS':'PICKUP',1.42,.24,0,0,0,{
+      box(scene,s.id==='line'?mint:gold,s.x,1.038,-3.07,.97,.016,.62);
+      const plaque=group(scene,s.x,.87,-2.604);
+      label(plaque,s.id==='line'?'ORDERS':'PICKUP',.92,.17,0,0,0,{
         bg:s.id==='line'?'#314e49':'#70513f',fg:'#fff0cc',border:s.id==='line'?'#96be9c':'#d0a777'});
-    }
-    // The three groups face into the aisle, so you can see the whole workflow as you turn.
-    for(const [x,y,z,angle,caption] of [[0,2.65,3.89,180,'TEA DISPENSERS'],[-5.83,2.64,.20,90,'CUPS  /  BAKERY'],[5.83,2.64,.20,-90,'TOPPINGS  /  LIDS']]){
-      const rail=group(scene,x,y,z,radians(angle));
-      box(rail,wood,0,0,0,2.42,.42,.06);
-      label(rail,caption,2.34,.35,0,0,.033,{bg:'#384a44',fg:'#f6e8c8',border:'#a5a28a'});
     }
 
     const fixtures=new Map(),actorsById=new Map(),motion=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Small physical displays stay on the machines. Reuse each canvas as its timer changes.
+    function statusDisplay(parent,x,y,z,w,h,idle){
+      const face=document.createElement('canvas');face.width=256;face.height=80;
+      const g=face.getContext('2d'),texture=new T.CanvasTexture(face);texture.minFilter=T.LinearFilter;
+      const screen=mesh(parent,new T.PlaneGeometry(w,h),new T.MeshBasicMaterial({map:texture}),x,y,z);
+      let previous='';
+      return (job,clock)=>{
+        screen.visible=!!(job||idle);
+        if(!screen.visible)return;
+        const text=machineReadout(job,clock)||idle,progress=clock?Math.round(clock.progress*32):0;
+        const key=text+'/'+progress;if(key===previous)return;previous=key;
+        const ready=!!job?.ready;
+        g.fillStyle=ready?'#174e43':job?'#4e3529':'#333537';g.fillRect(0,0,256,80);
+        g.strokeStyle=ready?'#a3e5bc':job?'#f0c487':'#9a9180';g.lineWidth=4;g.strokeRect(2,2,252,76);
+        g.font='bold 36px system-ui,sans-serif';g.fillStyle=ready?'#d4ffdc':'#fff0cc';g.textAlign='center';g.textBaseline='middle';
+        g.fillText(text,128,job?33:40,232);
+        if(job){g.fillStyle='#817163';g.fillRect(12,62,232,7);g.fillStyle=ready?'#98e9c1':'#ffc57c';g.fillRect(12,62,progress*7.25,7);}
+        texture.needsUpdate=true;
+      };
+    }
+    function buildTap(parent,x,index){
+      const tap=group(parent,x,0,0);tap.scale.setScalar(.84);
+      const brew=material(index===0?'#bf825b':'#b7bd91');
+      box(tap,steel,0,.024,0,.71,.048,.54);
+      for(const side of [-.18,.18])for(const z of [-.14,.14])cyl(tap,steel,side,.22,z,.014,.019,.39,8);
+      box(tap,steel,0,.43,0,.49,.04,.42);
+      cyl(tap,material('#fff',{transparent:true,opacity:.22,depthWrite:false}),0,.74,0,.208,.208,.59,24);
+      cyl(tap,brew,0,.71,0,.191,.191,.49,24);
+      cyl(tap,index===0?gold:mint,0,.455,0,.215,.215,.055,24);
+      cyl(tap,steel,0,1.055,0,.224,.224,.065,24);ball(tap,dark,0,1.10,0,.035);
+      const spout=cyl(tap,steel,0,.49,.225,.023,.023,.205,12);spout.rotation.x=Math.PI/2;
+      cyl(tap,steel,0,.456,.316,.023,.018,.069,12);
+      const lever=group(tap,0,.50,.28);box(lever,rose,0,.064,0,.036,.128,.036);ball(lever,rose,0,.14,0,.034);
+      const stream=cyl(tap,brew,0,.345,.315,.012,.014,.16,9);stream.visible=false;
+      const cup=art.cup(null);cup.position.set(0,.052,.315);tap.add(cup);cup.visible=false;
+      const fill=cyl(cup,brew,0,.010,0,.074,.058,.16,18);
+      const display=statusDisplay(tap,0,.81,.217,.49,.155,index===0?'TAP A':'TAP B');
+      return {brew,lever,stream,cup,fill,display};
+    }
     for(const s of stations){
       const root=group(scene,s.x,1.037,s.z,radians(s.angle));const tag=group(root,0,0,.11);
       const equipment=group(root,0,0,-.16);
-      const f={root,tag,equipment,label:'',current:null};fixtures.set(s.id,f);
-      shadow(root,0,.015,-.13,.98,.62);
+      const f={root,tag,equipment,label:'',pulse:0};fixtures.set(s.id,f);
+      shadow(root,0,.015,-.13,s.id==='tea'?1.35:.84,.58);
       if(s.id==='line'){
+        equipment.scale.setScalar(.8);
         box(equipment,walnut,-.24,.038,0,.92,.056,.44);
-        cyl(equipment,gold,.29,.085,.19,.065,.078,.047);ball(equipment,gold,.29,.136,.19,.064,.052,.064);
+        cyl(equipment,gold,.29,.085,.19,.065,.078,.047);f.bell=ball(equipment,gold,.29,.136,.19,.064,.052,.064);
         const till=group(equipment,-.38,.11,.12);box(till,dark,0,0,0,.27,.22,.08);till.rotation.x=-.16;
         label(till,'ORDER',.22,.12,0,0,.05,{bg:'#ace2cd',border:'#82bda5',fg:'#344a42'});
-        box(equipment,cream,.05,.076,.045,.23,.028,.28);
-        for(let j=0;j<3;j++)box(equipment,steel,.05,.092,-.005+j*.048,.13,.004,.007);
+        f.receipt=group(equipment,.05,.076,.045);
+        box(f.receipt,cream,0,0,0,.23,.028,.28);
+        for(let j=0;j<3;j++)box(f.receipt,steel,0,.016,-.05+j*.048,.13,.004,.007);
+        f.counterDisplay=statusDisplay(equipment,.03,.25,.11,.53,.16,'');
       }else if(s.id==='pickup'){
+        equipment.scale.setScalar(.81);
         const tray=material('#b4d5c9');
         box(equipment,walnut,0,.046,.05,1.07,.064,.49);
-        box(equipment,tray,0,.087,.05,.99,.018,.42);
+        f.tray=box(equipment,tray,0,.087,.05,.99,.018,.42);
         cyl(equipment,steel,.59,.046,-.10,.10,.12,.045);
         cyl(equipment,steel,.59,.27,-.10,.017,.023,.43,10);
         for(let j=0;j<3;j++)box(equipment,cream,.59,.12+j*.023,-.10,.17,.018,.18).rotation.y=.17*j;
@@ -223,43 +277,42 @@ window.BobaRoom = (() => {
         cyl(f.dirt,cream,0,.014,0,.20,.18,.026);
         for(let i=0;i<8;i++)ball(f.dirt,walnut,(rand()-.5)*.55,.04,rand()*.22,.022,.012,.018);
         const empty=art.cup(null);empty.rotation.z=1.27;empty.position.set(.14,.10,-.06);f.dirt.add(empty);f.dirt.visible=false;
-      }else if(s.id.startsWith('tea')){
-        // Original renderStations3 tea boiler: four legs, steel platform, glass reservoir,
-        // pink lever, cap, spigot and drip tray, enlarged to café-service scale.
-        box(equipment,steel,0,.024,0,.71,.048,.54);
-        for(const x of [-.18,.18])for(const z of [-.14,.14])cyl(equipment,steel,x,.22,z,.014,.019,.39,8);
-        box(equipment,steel,0,.43,0,.49,.04,.42);
-        cyl(equipment,material('#fff',{transparent:true,opacity:.22,depthWrite:false}),0,.74,0,.208,.208,.59,24);
-        f.brew=material('#bc865a');cyl(equipment,f.brew,0,.71,0,.191,.191,.49,24);
-        cyl(equipment,[gold,mint,rose][Number(s.id.slice(3))],0,.455,0,.215,.215,.055,24);
-        cyl(equipment,steel,0,1.055,0,.224,.224,.065,24);ball(equipment,dark,0,1.10,0,.035);
-        const spout=cyl(equipment,steel,0,.49,.225,.023,.023,.205,12);spout.rotation.x=Math.PI/2;
-        cyl(equipment,steel,0,.456,.316,.023,.018,.069,12);
-        f.handle=group(equipment,0,.50,.28);box(f.handle,rose,0,.064,0,.036,.128,.036);ball(f.handle,rose,0,.14,0,.034);
-        f.stream=cyl(equipment,f.brew,0,.345,.315,.012,.014,.16,9);f.stream.visible=false;
-        f.workCup=art.cup(null);f.workCup.position.set(0,.052,.315);equipment.add(f.workCup);f.workCup.visible=false;
-        f.fill=cyl(f.workCup,f.brew,0,.010,0,.074,.058,.16,18);
+        f.cloth=box(equipment,mint,0,.16,.08,.28,.043,.19);f.cloth.visible=false;
+        f.counterDisplay=statusDisplay(equipment,-.08,.29,.15,.53,.16,'');
+      }else if(s.id==='tea'){
+        box(equipment,wood,0,.01,-.02,1.47,.035,.55);
+        f.taps=[buildTap(equipment,-.37,0),buildTap(equipment,.37,1)];
       }else if(s.id==='rack'){
+        equipment.scale.setScalar(.81);
         box(equipment,wood,0,.025,0,1.05,.05,.48);
-        for(const x of [-.28,-.02])for(let i=0;i<5;i++)cyl(equipment,cream,x,.13+i*.053,0,.095,.073,.19,18);
+        f.stack=group(equipment,0,0,0);
+        for(const x of [-.28,-.02])for(let i=0;i<5;i++)cyl(f.stack,cream,x,.13+i*.053,0,.095,.073,.19,18);
         cyl(equipment,steel,.33,.13,0,.075,.075,.24);
         for(let i=0;i<7;i++)cyl(equipment,[mint,rose,gold][i%3],.33+Math.cos(i)*.033,.33,Math.sin(i)*.033,.011,.011,.37,7).rotation.z=Math.sin(i)*.15;
       }else if(s.id==='top'){
+        equipment.scale.setScalar(.84);
         box(equipment,steel,0,.10,0,.9,.20,.52);
         for(let i=0;i<3;i++){
           const x=(i-1)*.285;box(equipment,dark,x,.214,0,.26,.035,.46);
           for(let j=0;j<13;j++)ball(equipment,[walnut,rose,mint][i],x+(rand()-.5)*.19,.245+rand()*.023,(rand()-.5)*.32,.034);
         }
+        f.scoop=group(equipment,.19,.37,0);ball(f.scoop,gold,0,0,0,.094,.043,.082);
+        box(f.scoop,walnut,.11,.05,-.01,.23,.032,.039).rotation.z=.4;
+        f.workCup=art.cup(null);f.workCup.position.set(.23,.015,.30);equipment.add(f.workCup);f.workCup.visible=false;
+        f.drink=material('#bc865a');cyl(f.workCup,f.drink,0,.087,0,.076,.060,.151,18);
+        f.pearls=group(equipment,.23,.4,.30);
+        for(let j=0;j<4;j++)ball(f.pearls,walnut,(j-1.5)*.012,j*.017,(j%2)*.014,.017);
+        f.display=statusDisplay(equipment,-.1,.113,.266,.47,.15,'BOBA');
       }else if(s.id==='lid'){
+        equipment.scale.setScalar(.86);
         box(equipment,cream,0,.31,0,.56,.62,.49);box(equipment,dark,0,.23,.26,.38,.29,.035);
         box(equipment,steel,0,.072,.35,.34,.024,.25);box(equipment,mint,0,.49,.256,.36,.095,.025);
         f.handle=group(equipment,.29,.53,0);cyl(f.handle,steel,.074,.1,0,.019,.019,.25,10).rotation.z=-.62;ball(f.handle,rose,.15,.19,0,.051);
         f.workCup=art.cup(null);f.workCup.position.set(0,.082,.34);f.workCup.scale.setScalar(.82);equipment.add(f.workCup);f.workCup.visible=false;
-      }else if(s.id==='dessert'){
-        f.oven=material('#453b40',{emissive:'#ec8951',emissiveIntensity:0});
-        box(equipment,rose,0,.30,0,.78,.60,.50);box(equipment,f.oven,0,.27,.258,.67,.33,.025);
-        box(equipment,steel,0,.112,.29,.59,.024,.09);for(let j=-1;j<=1;j++)ball(equipment,[mint,cream,gold][j+1],j*.17,.19,.285,.080,.062,.059);
-        for(const x of [-.24,.24])cyl(equipment,cream,x,.525,.26,.045,.045,.04,12).rotation.x=Math.PI/2;
+        f.drink=material('#bc865a');cyl(f.workCup,f.drink,0,.087,0,.076,.060,.151,18);
+        f.press=cyl(equipment,steel,0,.345,.34,.132,.13,.039,24);
+        f.seal=cyl(equipment,mint,0,.24,.34,.084,.084,.012,24);f.seal.visible=false;
+        f.display=statusDisplay(equipment,0,.495,.277,.46,.147,'SEAL');
       }
     }
     scene.add(cam);const user=art.player(),pawMat=material(user.fur),cuff=material(user.apron),sock=material('#fff8ef'),pads=material('#f3a9bc');
@@ -275,7 +328,7 @@ window.BobaRoom = (() => {
     let carried=null,carriedKey='',lastItems={},time=0,lastW=0,lastH=0,stride=0,handSway=0;
     function resize(){
       const w=view.clientWidth,h=view.clientHeight;if(!w||!h||w===lastW&&h===lastH)return;
-      lastW=w;lastH=h;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();
+      lastW=w;lastH=h;renderer.setSize(w,h,false);cam.aspect=w/h;cam.fov=cam.aspect<.8?77:66;cam.updateProjectionMatrix();
     }
     function paint(items){
       lastItems=items;
@@ -284,12 +337,11 @@ window.BobaRoom = (() => {
         f.root.visible=!!v;
         const text=s.id==='line'||s.id==='pickup'?'':v?.label||'';
         if(text!==f.label){
-          f.label=text;release(f.tagMesh);f.tagMesh=text?label(f.tag,text,s.id.startsWith('tea')?1.05:.88,.17,0,-.075,.032,{bg:'#3c3837',fg:'#f4e8cf',border:'#756552'}):null;
+          f.label=text;release(f.tagMesh);f.tagMesh=text?label(f.tag,text,s.id==='tea'?1.05:.77,.15,0,-.15,.055,{bg:'#3c3837',fg:'#f4e8cf',border:'#756552'}):null;
         }
-        if(f.brew&&v?.color)f.brew.color.set(v.color);
-        if(f.stream)f.stream.visible=!!v?.running;
-        if(f.workCup)f.workCup.visible=!!v?.running;
-        if(f.oven)f.oven.emissiveIntensity=v?.running ? .65 : 0;
+        f.taps?.forEach((tap,n)=>tap.brew.color.set(v?.bays?.[n]?.color||['#bf825b','#b7bd91'][n]));
+        if(f.workCup)f.workCup.visible=!!(v?.running||v?.ready);
+        if(f.drink&&v?.color)f.drink.color.set(v.color);
         if(f.dirt)f.dirt.visible=!!v?.dirty;
       }
       const keep=new Set();
@@ -325,26 +377,57 @@ window.BobaRoom = (() => {
       }
       const st=config.state();
       for(const [id,f] of fixtures){
-        const running=!!lastItems[id]?.running;
-        if(f.handle)f.handle.rotation.x=running?-.42:0;
-        if(f.fill){
-          const brewing=running&&st?.orders.find(o=>o.id===lastItems[id].jobId);
-          f.poured=brewing?clamp(1-brewing.cup.left/3.5,0,1):0;
-          f.fill.scale.y=Math.max(.02,f.poured);
-          f.fill.position.y=.006+f.poured*.08;
+        const item=lastItems[id],job=item&&(item.running||item.ready)?item:null,clock=workClock(job,st);
+        f.pulse=Math.max(0,f.pulse-dt);
+        const pop=motion&&f.pulse?Math.sin(Math.PI*f.pulse/.34):0;
+        if(f.bell)f.bell.position.y=.136-pop*.022;
+        if(f.receipt)f.receipt.position.z=.045+pop*.10;
+        if(f.stack)f.stack.position.y=pop*.075;
+        if(f.tray)f.tray.rotation.z=pop*.04;
+        if(f.cloth){
+          const wiping=st?.job?.kind==='clean'||st?.staff?.cleaner?.task?.kind==='wipe';
+          f.cloth.visible=!!wiping;if(wiping)f.cloth.position.x=motion?Math.sin(time*13)*.28:0;
         }
+        if(f.counterDisplay){
+          const counterJob=counterTask(id,st);
+          if(counterJob){
+            if(f.previousTask!==counterJob.caption||counterJob.left>f.previousLeft)f.taskLength=counterJob.left;
+            f.counterDisplay(counterJob,{left:counterJob.left,progress:1-counterJob.left/Math.max(f.taskLength,.01)});
+          }else f.counterDisplay(null,null);
+          f.previousTask=counterJob?.caption;f.previousLeft=counterJob?.left;
+        }
+        if(f.scoop){
+          const scoop=job?.running&&motion?Math.sin(clock.progress*Math.PI*2):0;
+          f.scoop.position.x=.19-scoop*.18;f.scoop.position.y=.37+Math.abs(scoop)*.13;
+          f.scoop.position.z=job?.running ? .21*clock.progress : 0;f.scoop.rotation.z=scoop*.45;
+          f.pearls.visible=!!job?.running&&clock.progress>.45&&clock.progress<.92;
+          if(f.pearls.visible)f.pearls.position.y=.36-.18*(motion?(clock.progress-.45)/.47:.5);
+        }
+        f.display?.(job,clock);
+        if(f.press){
+          const stamp=job?.running?Math.sin(Math.PI*clock.progress):0;
+          f.press.position.y=.345-(motion ? .107*stamp : 0);f.handle.rotation.x=-.46*stamp;
+          f.seal.visible=!!(job?.ready||job?.running&&clock.progress>.66);
+        }
+        f.taps?.forEach((tap,n)=>{
+          const bay=item?.bays?.[n],batch=bay&&(bay.running||bay.ready)?bay:null,brew=workClock(batch,st);
+          tap.display(batch,brew);
+          tap.cup.visible=!!batch;tap.stream.visible=!!batch?.running;
+          tap.lever.rotation.x=batch?.running?-.42:0;
+          const fill=brew?.progress||0;
+          tap.fill.scale.y=Math.max(.02,fill);tap.fill.position.y=.006+fill*.08;
+          if(batch?.running&&motion)tap.stream.scale.x=.9+Math.sin(time*23)*.12;
+        });
       }
       const held=st?.hand,o=held&&st.orders.find(g=>g.id===held.id);
-      const key=o?[held.kind,o.cup.stage,o.cup.flavor,o.cup.top,o.dessert].join(':'):'';
+      const key=o?[held.kind,o.cup.stage,o.cup.flavor,o.cup.top].join(':'):'';
       if(key!==carriedKey){
         carriedKey=key;release(carried);carried=null;
-        if(o){
-          if(held.kind==='cup'){carried=art.cup(o.cup);carried.scale.setScalar(1.34);}
-          else{carried=new T.Group();cyl(carried,cream,0,0,0,.135,.11,.013);ball(carried,rose,0,.057,0,.097,.062,.082);}
+        if(o&&held.kind==='cup'){
+          carried=art.cup(o.cup);carried.scale.setScalar(1.34);
           carried.position.set(-.045,-.054,-.073);hand.add(carried);
         }
       }
-      if(carried)carried.visible=!(st.job?.id===held.id && (st.job.kind==='pour'||st.job.kind==='lid'));
       const spread=Math.min(.26,cam.aspect*.28);
       if(motion){
         stride+=distance*4.5;
@@ -358,7 +441,7 @@ window.BobaRoom = (() => {
       renderer.render(scene,cam);
     }
     view.prepend(canvas);
-    return {paint,resize,frame,canvas,renderer};
+    return {paint,resize,frame,canvas,renderer,pulse(id){const f=fixtures.get(id);if(f)f.pulse=.34;}};
   }
   function create(view,config) {
     const world=document.createElement('div');world.className='bw-camera';view.append(world);
@@ -375,7 +458,6 @@ window.BobaRoom = (() => {
       const canvas=scene.canvas;canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();canvas.hidden=true;useFallback();});
       scene.paint(latest);
     }
-    const sign=(y,txt)=>'<div style="bottom:'+y+'%" class="bw-sign">'+txt+'</div>';
     function plane(x,y,z,w,h,angle,cl,html='',tilt=0) {
       const el=document.createElement('div');el.className='bw-plane '+cl;el.setAttribute('aria-hidden','true');
       el.style.width=w*unit+'px';el.style.height=h*unit+'px';
@@ -394,13 +476,10 @@ window.BobaRoom = (() => {
     plane(0,1.92,-10.96,12,3.84,0,'bw-wall bw-frontwall','<div class="bw-window"><i class="bw-moon"></i><i class="bw-skyline"></i><i class="bw-panes"></i></div><div class="bw-door"><b></b></div>');
     plane(0,3.43,-10.81,3.28,.46,0,'bw-hanging-sign','Midnight Paws Boba');
     plane(4.50,2.03,-6.28,1.67,1.94,-22,'bw-slate','<b>MENU</b><span>Classic Milk Tea</span><span>Jasmine Milk Tea</span><span>Brown Sugar Milk</span>');
-    plane(0,1.81,3.78,9.8,3.62,180,'bw-wall bw-backwall',sign(76,'TEA DISPENSERS'));
-    plane(-5.93,1.92,-3.5,15,3.84,90,'bw-wall bw-westwall',sign(76,'CUPS &amp; BAKERY'));
-    plane(5.93,1.92,-3.5,15,3.84,-90,'bw-wall bw-eastwall',sign(76,'TOPPINGS &amp; LIDS'));
-    box(0,.45,-3.17,9.72,.9,.98,'bw-counter');
-    box(0,.45,3.28,9.72,.9,1.03,'bw-counter');
-    box(-4.40,.45,0,1.02,.9,5.48,'bw-counter');
-    box(4.40,.45,0,1.02,.9,5.48,'bw-counter');
+    plane(0,1.81,3.78,12,3.62,180,'bw-wall bw-backwall');
+    plane(-5.93,1.92,-3.5,15,3.84,90,'bw-wall bw-westwall');
+    plane(5.93,1.92,-3.5,15,3.84,-90,'bw-wall bw-eastwall');
+    box(0,.49,-3.07,6.75,.98,.85,'bw-counter');
     for(const z of [-2.9,.28,2.9])for(const x of [-3.35,3.35]){
       plane(x,2.96,z,.46,1.24,0,'bw-lantern','<i></i>');
     }
@@ -412,24 +491,39 @@ window.BobaRoom = (() => {
       for(const side of [-1,1]){box(x+side*.82,.43,z,.47,.09,.46,'bw-oak');box(x+side*1.03,.79,z,.08,.67,.44,'bw-oak');}
     }
     for(const s of stations){
-      const el=plane(s.x,1.48,s.z,1.26,1.05,s.angle,'bw-prop');
+      const el=plane(s.x,1.37,s.z,s.id==='tea'?1.49:.9,.87,s.angle,'bw-prop');
       points.set(s.id,el);
     }
+    const fallbackMeters=new Map();
+    const parts='<i class="bw-eq-a"></i><i class="bw-eq-b"></i><i class="bw-eq-c"></i><i class="bw-eq-d"></i>';
     function paintFallback(items) {
+      fallbackMeters.clear();
       for(const s of stations){
         const i=items[s.id],el=points.get(s.id);
         if(!i){el.hidden=true;continue;}
         el.hidden=false;el.classList.toggle('bw-running',!!i.running);
         if(s.id==='pickup'){
-          el.innerHTML='<div class="bw-pass-tray"></div>'+(i.dirty?'<div class="bw-crumbs">● · •</div>':'')+'<span class="bw-name bw-pass-name">PICKUP</span>';
+          el.innerHTML='<div class="bw-pass-tray"></div>'+(i.dirty?'<div class="bw-crumbs">● · •</div>':'')+'<i class="bw-wipe-cloth" hidden></i><b class="bw-led" hidden></b><span class="bw-name bw-pass-name">PICKUP</span>';
         }else if(s.id==='line'){
-          el.innerHTML='<div class="bw-till"><b>ORDER</b><i></i></div><span class="bw-name bw-line-name">ORDERS</span>';
-        }else{
-          const type=s.id.startsWith('tea')?'tea':s.id;
-          el.style.setProperty('--brew',i.color||'#c79673');
-          el.innerHTML='<div class="bw-equipment bw-eq-'+type+'"><i class="bw-eq-a"></i><i class="bw-eq-b"></i><i class="bw-eq-c"></i><i class="bw-eq-d"></i></div><span class="bw-name"></span>';
+          el.innerHTML='<div class="bw-till"><b>ORDER</b><i></i></div><b class="bw-led" hidden></b><span class="bw-name bw-line-name">ORDERS</span>';
+        }else if(s.id==='tea'){
+          el.innerHTML=[0,1].map(n=>'<div class="bw-dual-tap"><div class="bw-equipment bw-eq-tea">'+parts+'</div><i class="bw-tap-glass"></i><b class="bw-led"></b></div>').join('')+'<span class="bw-name"></span>';
+          [...el.querySelectorAll('.bw-dual-tap')].forEach((tap,n)=>{
+            const value=i.bays?.[n],batch=value&&(value.running||value.ready)?value:null;
+            tap.classList.toggle('bw-running',!!batch?.running);tap.classList.toggle('bw-has-cup',!!batch);
+            tap.style.setProperty('--brew',batch?.color||['#bf825b','#b7bd91'][n]);
+            fallbackMeters.set('tea'+n,{face:tap.querySelector('.bw-led'),parent:tap,job:batch,idle:n?'Tap B':'Tap A'});
+          });
           el.lastElementChild.textContent=i.label;
+        }else{
+          const type=s.id;
+          el.style.setProperty('--brew',i.color||'#c79673');
+          const withTimer=type==='lid'||type==='top';
+          el.innerHTML='<div class="bw-equipment bw-eq-'+type+'">'+parts+'</div>'+(withTimer?'<b class="bw-led"></b>':'')+'<span class="bw-name"></span>';
+          el.lastElementChild.textContent=i.label;
+          if(withTimer)fallbackMeters.set(type,{face:el.querySelector('.bw-led'),parent:el,job:i.running||i.ready?i:null,idle:type==='top'?'Boba':'Seal'});
         }
+        if(s.id==='line'||s.id==='pickup')fallbackMeters.set(s.id,{face:el.querySelector('.bw-led'),parent:el,counter:s.id});
       }
       const keep=new Set();
       for(const a of actors(items)){
@@ -441,6 +535,22 @@ window.BobaRoom = (() => {
         if(a.apron)el.classList.add('bw-staff');
       }
       for(const [key,el] of guestPlanes)if(!keep.has(key)){el.remove();guestPlanes.delete(key);}
+    }
+    function tickFallback(){
+      const st=config.state();
+      for(const {face,parent,job,idle,counter} of fallbackMeters.values()){
+        if(counter){
+          const task=counterTask(counter,st);face.hidden=!task;
+          if(task){const text=machineReadout(task,{left:task.left});if(face.textContent!==text)face.textContent=text;}
+          continue;
+        }
+        const clock=workClock(job,st),text=machineReadout(job,clock)||idle;
+        if(face.textContent!==text)face.textContent=text;
+        parent.style.setProperty('--fill',(100*(clock?.progress||0)).toFixed(1)+'%');
+        face.classList.toggle('bw-ready',!!job?.ready);
+      }
+      const cloth=points.get('pickup').querySelector('.bw-wipe-cloth');
+      if(cloth)cloth.hidden=!(st?.job?.kind==='clean'||st?.staff?.cleaner?.task?.kind==='wipe');
     }
     function paint(items){
       latest=items;const stamp=JSON.stringify(items);
@@ -557,9 +667,16 @@ window.BobaRoom = (() => {
         }
       }
       world.style.transform='translateZ('+focal+'px) rotateX('+p.pitch+'rad) rotateY('+p.yaw+'rad) translate3d('+(-p.x*unit)+'px,'+(eye*unit)+'px,'+(-p.z*unit)+'px)';
-      ensureScene();scene?.frame(dt,p,distance,sprint);
+      ensureScene();if(scene)scene.frame(dt,p,distance,sprint);else tickFallback();
     }
-    return {frame,paint,clear,resize,captureLook,releaseLook,turn(amount){const p=config.state().pose;p.yaw=wrap(p.yaw+amount);}};
+    function pulse(id){
+      if(id==='tea0'||id==='tea1')id='tea';
+      if(scene){scene.pulse(id);return;}
+      if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+      const item=points.get(id)?.firstElementChild;
+      item?.animate([{transform:'translateY(0)'},{transform:'translateY(-5px)'},{transform:'translateY(0)'}],{duration:250});
+    }
+    return {frame,paint,pulse,clear,resize,captureLook,releaseLook,turn(amount){const p=config.state().pose;p.yaw=wrap(p.yaw+amount);}};
   }
   return {stations,spot,nearest,direction,spawn,bounded,create};
 })();
