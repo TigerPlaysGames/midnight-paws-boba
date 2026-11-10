@@ -20,7 +20,7 @@
 <script src="cafe-career.js?v=15"></script>
 <script src="cafe-home.js?v=15"></script>
 <script src="cafe-room.js?v=15"></script>
-<script src="cafe-service.js?v=15"></script>
+<script src="cafe-service.js?v=15.1"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -1038,7 +1038,7 @@ const HELLO=['Hi hi!','Mrrp, hello!','Evening~','Meow!','Hiya, night owl!','*str
 const KEY='midnight-paws-boba-v1';
 const STARTER_MENU=['classic','jasminemt','bsmilk','jasminetea','pearls','foam','nata'];
 let S={money:0,unlocked:[...STARTER_MENU],served:0,perfect:0,combo:0,best:0,xp:0,level:1,met:[],goals:[],fresh:[],freshIng:[],lastDay:'',dayStreak:0,earned:0,creations:[],bestCatch:0,audio:{all:true,music:true,rain:true,sfx:true}};
-let checkpointShift;
+let checkpointShift, settlingCafeReward=false;
 let lastSave=null, unreadableSave=false;
 function warnSave(message){
   const warning=document.getElementById('saveWarning');
@@ -1059,7 +1059,7 @@ try{
 }
 S.audio=Object.assign({all:true,music:true,rain:true,sfx:true},S.audio||{});
 function save(){
-  if(unreadableSave)return;
+  if(unreadableSave||settlingCafeReward)return;
   try{
     if(localStorage.getItem(KEY)!==lastSave){
       warnSave('Another tab changed your café. Reload to continue from its save.');
@@ -5807,21 +5807,25 @@ if(window.BobaService){
     toggleSound(id){if(Object.hasOwn(S.audio,id)){S.audio[id]=!S.audio[id];applyAudio();save();}},
     backup(kind){$('#backupMsg').textContent='';if(kind==='export')$('#downloadSave').click();else $('#chooseSave').click();},
     reward(order,workers){
-      const recipe=DRINKS.find(d=>d.id===order.drink),rare=!!COATS.find(c=>c.id===order.coat).rare;
-      S.combo++;S.best=Math.max(S.best,S.combo);
-      const serviceQuality=Math.min(order.greetingQuality??1,order.left/order.limit);
-      const price=recipe.price+(order.top?1:0),tip=Math.round(4*serviceQuality);
-      const scale=mult()*(rare?3:1)*(1+.25*(S.rebirths||0));
-      const earnings=Math.round((price+tip)*scale);
-      const paidTip=earnings-Math.round(price*scale);
-      const pay=earnings+window.BobaWorkers.bonusTip(workers,paidTip)+window.BobaCareer.extraTip(S.cafeService);
-      S.money+=pay;S.earned+=pay;S.served++;S.perfect++;
-      if(!S.met.includes(order.coat))S.met.push(order.coat);
-      S.fresh=S.fresh.filter(id=>id!==order.drink&&id!==order.top);
-      gainXP(rare?60:25);
-      goalEvent({perfect:true,pay,topping:!!order.top,fast:order.left>order.limit/2,drink:order.drink,noice:order.ice===false,rare});
-      setMoney(S.money);sfx('perfect',S.combo);
-      return pay;
+      // Commit the receipt and wallet together after the service has counted this payout.
+      settlingCafeReward=true;
+      try{
+        const recipe=DRINKS.find(d=>d.id===order.drink),rare=!!COATS.find(c=>c.id===order.coat).rare;
+        S.combo++;S.best=Math.max(S.best,S.combo);
+        const serviceQuality=Math.min(order.greetingQuality??1,order.left/order.limit);
+        const price=recipe.price+(order.top?1:0),tip=Math.round(4*serviceQuality);
+        const scale=mult()*(rare?3:1)*(1+.25*(S.rebirths||0));
+        const earnings=Math.round((price+tip)*scale);
+        const paidTip=earnings-Math.round(price*scale);
+        const pay=earnings+window.BobaWorkers.bonusTip(workers,paidTip)+window.BobaCareer.extraTip(S.cafeService);
+        S.money+=pay;S.earned+=pay;S.served++;S.perfect++;
+        if(!S.met.includes(order.coat))S.met.push(order.coat);
+        S.fresh=S.fresh.filter(id=>id!==order.drink&&id!==order.top);
+        gainXP(rare?60:25);
+        goalEvent({perfect:true,pay,topping:!!order.top,fast:order.left>order.limit/2,drink:order.drink,noice:order.ice===false,rare});
+        setMoney(S.money);sfx('perfect',S.combo);
+        return pay;
+      }finally{settlingCafeReward=false;}
     },
     exit(){history.replaceState(null,'',location.pathname+location.search);setMoney(S.money);renderHUD();renderMenuScreen();$('#playBtn').textContent='My café rounds';}
   });

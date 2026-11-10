@@ -123,6 +123,7 @@ window.BobaService=(()=>{
     if(s.version>=3){
       const f=s.shift,staff=s.staff,career=s.career;
       if(!f||!count(f.number)||f.number<1||f.quota!==Math.min(8,f.number+2)||!count(f.served)||!count(f.missed)||
+         f.levelBonus!==undefined&&!count(f.levelBonus)||f.partialReceipt!==undefined&&typeof f.partialReceipt!=='boolean'||
          f.greeted!==undefined&&typeof f.greeted!=='boolean'||f.started!==undefined&&typeof f.started!=='boolean'||
          f.started===false&&(f.served>0||f.missed>0||f.complete||s.orders.length>0)||f.timely!==undefined&&(!count(f.timely)||f.timely>f.served)||
          !count(f.earned)||f.served+s.orders.length>f.quota||f.complete!==(f.served===f.quota)||
@@ -274,6 +275,10 @@ window.BobaService=(()=>{
   }
   function give(o){
     if(!o||order(o.id)!==o)return false;
+    if(state.shift.levelBonus===undefined){
+      state.shift.partialReceipt=state.shift.served>0;
+      state.shift.levelBonus=0;
+    }
     const quality=Math.min(o.greetingQuality??1,o.left/o.limit);
     remove(o.id);state.shift.served++;state.career.served++;
     if(quality>=.45)state.shift.timely++;
@@ -283,7 +288,10 @@ window.BobaService=(()=>{
       BobaCareer.finishRound(state,app.state);
       for(const worker of Object.values(state.staff))worker.task=null;
     }
-    const pay=app.reward(o,state.workers);state.shift.earned+=pay;
+    const walletBeforeDrink=app.state.money;
+    const pay=app.reward(o,state.workers);
+    state.shift.earned+=pay;
+    state.shift.levelBonus+=Math.round(app.state.money-walletBeforeDrink-pay);
     say(o.name+(quality<.25?' left a small tip.':quality<.55?' collected their order.':' loved it!')+' +$'+pay);
     return true;
   }
@@ -693,7 +701,15 @@ window.BobaService=(()=>{
     if(crewOpen)crewPanel();
     if(f.complete){
       room.releaseLook();by('.bw-receipt h2').textContent='Round '+f.number+' complete!';
-      by('.bw-receipt p').textContent=f.served+' guests served · $'+f.earned+' earned'+(state.career.lastIncome?' · +$'+state.career.lastIncome+' from other cafés':'')+(f.hiringTicket?' · +1 hiring ticket':'');
+      const income=state.career.lastIncome||0,bonus=f.levelBonus||0;
+      const known=f.levelBonus!==undefined&&!f.partialReceipt;
+      const lines=[f.served+' guests served','$'+f.earned+' from orders'];
+      if(bonus)lines.push('+$'+bonus+(known?' level bonus':' in recorded level bonuses'));
+      if(income)lines.push('+$'+income+' from other cafés');
+      if(f.hiringTicket)lines.push('+1 hiring ticket');
+      const total=by('.bw-receipt-total');
+      total.textContent=known?'Round earnings +$'+(f.earned+bonus+income):'Wallet $'+Math.floor(app.state.money);
+      by('.bw-receipt p').textContent=lines.join(' · ');
       const ratings=[[true,'Service goal met'],[f.missed===0,'No guests left early'],[f.timely===f.quota,'Every guest greeted and served promptly']];
       const stars=ratings.filter(([earned])=>earned).length,badge=by('.bw-round-stars');badge.textContent='★'.repeat(stars)+'☆'.repeat(3-stars);badge.setAttribute('aria-label',stars+' of 3 stars');
       by('.bw-round-ratings').innerHTML=ratings.map(([earned,label])=>'<li data-earned="'+earned+'" aria-label="'+(earned?'Earned: ':'Missed: ')+label+'">'+label+'</li>').join('');
@@ -783,7 +799,7 @@ window.BobaService=(()=>{
     '<div class="bw-legend"><span class="bw-turns"><button type="button" class="bw-sprint" aria-pressed="false">Sprint</button><button type="button" data-service="left" aria-label="Turn left">↶</button><button type="button" data-service="right" aria-label="Turn right">↷</button></span></div></main>'+
     '<aside class="bw-recipe-panel" hidden><section class="bw-recipe-card" role="dialog" aria-modal="true" aria-labelledby="bwRecipeHeading"><header><h2 id="bwRecipeHeading" tabindex="-1">Tea bases</h2><button type="button" class="bw-recipe-close" data-service="recipeclose" aria-label="Close recipe menu">Close</button></header><div class="bw-recipe-options"></div><nav class="bw-recipe-pages" aria-label="Recipe pages"><button type="button" data-service="prevtea">Previous</button><span></span><button type="button" data-service="nexttea">More teas</button></nav></section></aside>'+
     '<aside class="bs-paused" hidden><div><span>☾</span><h2>Round paused</h2><p>Your cats and machines will wait.</p><button type="button" data-service="pause">Resume round</button> <button type="button" data-service="close">Café home</button></div></aside>'+
-    '<aside class="bw-receipt" hidden><section role="status"><small>Midnight Paws Café</small><h2></h2><div class="bw-round-stars" role="img"></div><p></p><ul class="bw-round-ratings"></ul><button type="button" data-service="next">Next round</button></section></aside>'+
+    '<aside class="bw-receipt" hidden><section role="status"><small>Midnight Paws Café</small><h2></h2><div class="bw-round-stars" role="img"></div><strong class="bw-receipt-total"></strong><p></p><ul class="bw-round-ratings"></ul><button type="button" data-service="next">Next round</button></section></aside>'+
     '<aside class="bw-crewboard" hidden><section role="dialog" aria-label="Café crew"><header><div><h2>Café crew</h2><strong class="bw-crew-wallet"></strong></div><button type="button" data-service="crewclose">Back to café</button></header>'+
     '<div class="bw-hiring"><p>Start with one hiring ticket. Earn another each time you finish a round.</p><div class="bw-rarity-odds">'+
     crew.tiers.map(t=>'<span data-tier="'+t.name+'">'+t.name+' <b>'+t.chance+'%</b></span>').join('')+'</div>'+
