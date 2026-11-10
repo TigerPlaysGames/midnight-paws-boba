@@ -3,18 +3,17 @@ window.BobaRoom = (() => {
   'use strict';
   const unit=120, eye=1.67, reach=1.62;
   const stations=[
-    {id:'line',x:0,z:-2.75,angle:0},
-    {id:'cat0',x:-2.45,z:-2.75,angle:0},{id:'cat1',x:2.45,z:-2.75,angle:0},{id:'cat2',x:-3.95,z:-2.32,angle:90},
-    {id:'rack',x:-3.95,z:-.9,angle:90},{id:'dessert',x:-3.95,z:1.3,angle:90},
-    {id:'tea0',x:-2.4,z:2.65,angle:180},{id:'tea1',x:0,z:2.65,angle:180},{id:'tea2',x:2.4,z:2.65,angle:180},
-    {id:'top',x:3.95,z:1.2,angle:-90},{id:'lid',x:-1.23,z:-2.75,angle:0}
+    {id:'line',x:-1.55,z:-2.75,angle:0},{id:'pickup',x:1.55,z:-2.75,angle:0},
+    {id:'dessert',x:-3.95,z:-1.15,angle:90},{id:'rack',x:-3.95,z:1.30,angle:90},
+    {id:'tea0',x:-2.1,z:2.65,angle:180},{id:'tea1',x:0,z:2.65,angle:180},{id:'tea2',x:2.1,z:2.65,angle:180},
+    {id:'top',x:3.95,z:1.30,angle:-90},{id:'lid',x:3.95,z:-1.15,angle:-90}
   ];
   const spot=id=>stations.find(s=>s.id===id);
   const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
   const wrap=r=>Math.atan2(Math.sin(r),Math.cos(r));
-  const spawn=()=>({x:0,z:-1.19,yaw:0,pitch:-.075});
+  const spawn=()=>({x:-.90,z:-1.36,yaw:-.27,pitch:-.075});
   const bounded=p=>p && Number.isFinite(p.x)&&Math.abs(p.x)<=3.38 && Number.isFinite(p.z)&&Math.abs(p.z)<=2.04 &&
-    Number.isFinite(p.yaw)&&Math.abs(p.yaw)<=Math.PI+.0001 && Number.isFinite(p.pitch)&&Math.abs(p.pitch)<=.4201;
+    Number.isFinite(p.yaw)&&Math.abs(p.yaw)<=Math.PI+.0001 && Number.isFinite(p.pitch)&&p.pitch>=-.6301&&p.pitch<=.5701;
   function direction(p,id) {
     const s=spot(id);if(!s)return null;
     const dx=s.x-p.x,dz=s.z-p.z;
@@ -28,13 +27,14 @@ window.BobaRoom = (() => {
   const radians=degrees=>degrees*Math.PI/180;
   function actors(items) {
     const people=[];
-    for(const [index,guest] of (items.line?.guests||[]).entries()){
-      people.push({key:'guest:'+guest.id,coat:guest.coat,name:guest.name,x:Math.min(index,4)*.95,z:-4.08-index*.89,y:index?.01:.55,yaw:index?-.4:0,front:index===0,arriving:guest.arriving});
-    }
-    for(const s of stations.filter(st=>st.id.startsWith('cat'))){
-      const guest=items[s.id];if(!guest || guest.dirty)continue;
-      const a=radians(s.angle);
-      people.push({key:guest.id!=null?'guest:'+guest.id:'guest:'+guest.label,coat:guest.coat,name:guest.label,x:s.x-Math.sin(a)*.38,z:s.z-Math.cos(a)*.55,y:.55,yaw:a});
+    for(const id of ['line','pickup']){
+      const s=spot(id),pickup=id==='pickup';
+      for(const [index,guest] of (items[id]?.guests||[]).entries()){
+        const spacing=pickup?.82:1.05;
+        people.push({key:'guest:'+guest.id,coat:guest.coat,name:guest.name,mood:guest.mood,
+          x:s.x+index*(pickup?.54:.94),z:-4.08-index*spacing,y:index?.01:.48,
+          yaw:index?(pickup?-.45:-.72):0,front:index===0&&!pickup,arriving:guest.arriving});
+      }
     }
     for(const worker of items.crew||[]){
       const s=spot(worker.station)||spot('line'),a=radians(s.angle);
@@ -184,20 +184,45 @@ window.BobaRoom = (() => {
     for(const [coat,x,z,yaw] of [['orange',-4.07,-7.44,.98],['brown',2.14,-8.27,-1.2]]){
       const guest=art.cat(coat,null);guest.g.position.set(x,.44,z);guest.g.rotation.y=yaw;guest.g.scale.setScalar(1.05);scene.add(guest.g);
     }
-    const counterStools=[[0,-4.08],[-2.45,-3.66],[2.45,-3.66],[-4.53,-2.36]];
-    for(const [x,z] of counterStools){const stool=art.item('stool');stool.position.set(x,0,z);scene.add(stool);}
+    const register=spot('line'),pass=spot('pickup');
+    for(const s of [register,pass]){
+      const stool=art.item('stool');stool.position.set(s.x,0,-4.08);scene.add(stool);
+      box(scene,s.id==='line'?mint:gold,s.x,1.038,-3.07,1.80,.016,.62);
+      const plaque=group(scene,s.x,.66,-2.654);
+      label(plaque,s.id==='line'?'ORDERS':'PICKUP',1.42,.24,0,0,0,{
+        bg:s.id==='line'?'#314e49':'#70513f',fg:'#fff0cc',border:s.id==='line'?'#96be9c':'#d0a777'});
+    }
+    // The three groups face into the aisle, so you can see the whole workflow as you turn.
+    for(const [x,y,z,angle,caption] of [[0,2.65,3.89,180,'TEA DISPENSERS'],[-5.83,2.64,.20,90,'CUPS  /  BAKERY'],[5.83,2.64,.20,-90,'TOPPINGS  /  LIDS']]){
+      const rail=group(scene,x,y,z,radians(angle));
+      box(rail,wood,0,0,0,2.42,.42,.06);
+      label(rail,caption,2.34,.35,0,0,.033,{bg:'#384a44',fg:'#f6e8c8',border:'#a5a28a'});
+    }
 
     const fixtures=new Map(),actorsById=new Map(),motion=!matchMedia('(prefers-reduced-motion: reduce)').matches;
     for(const s of stations){
       const root=group(scene,s.x,1.037,s.z,radians(s.angle));const tag=group(root,0,0,.11);
       const equipment=group(root,0,0,-.16);
       const f={root,tag,equipment,label:'',current:null};fixtures.set(s.id,f);
-      if(!s.id.startsWith('cat'))shadow(root,0,.005,-.13,.98,.69);
+      shadow(root,0,.015,-.13,.98,.62);
       if(s.id==='line'){
-        box(equipment,walnut,-.34,.025,0,1.03,.05,.49);
+        box(equipment,walnut,-.24,.038,0,.92,.056,.44);
         cyl(equipment,gold,.29,.085,.19,.065,.078,.047);ball(equipment,gold,.29,.136,.19,.064,.052,.064);
         const till=group(equipment,-.38,.11,.12);box(till,dark,0,0,0,.27,.22,.08);till.rotation.x=-.16;
-        label(till,'OPEN',.22,.12,0,0,.05,{bg:'#ace2cd',border:'#82bda5',fg:'#344a42'});
+        label(till,'ORDER',.22,.12,0,0,.05,{bg:'#ace2cd',border:'#82bda5',fg:'#344a42'});
+        box(equipment,cream,.05,.076,.045,.23,.028,.28);
+        for(let j=0;j<3;j++)box(equipment,steel,.05,.092,-.005+j*.048,.13,.004,.007);
+      }else if(s.id==='pickup'){
+        const tray=material('#b4d5c9');
+        box(equipment,walnut,0,.046,.05,1.07,.064,.49);
+        box(equipment,tray,0,.087,.05,.99,.018,.42);
+        cyl(equipment,steel,.59,.046,-.10,.10,.12,.045);
+        cyl(equipment,steel,.59,.27,-.10,.017,.023,.43,10);
+        for(let j=0;j<3;j++)box(equipment,cream,.59,.12+j*.023,-.10,.17,.018,.18).rotation.y=.17*j;
+        f.dirt=group(equipment,0,.10,0);
+        cyl(f.dirt,cream,0,.014,0,.20,.18,.026);
+        for(let i=0;i<8;i++)ball(f.dirt,walnut,(rand()-.5)*.55,.04,rand()*.22,.022,.012,.018);
+        const empty=art.cup(null);empty.rotation.z=1.27;empty.position.set(.14,.10,-.06);f.dirt.add(empty);f.dirt.visible=false;
       }else if(s.id.startsWith('tea')){
         // Original renderStations3 tea boiler: four legs, steel platform, glass reservoir,
         // pink lever, cap, spigot and drip tray, enlarged to café-service scale.
@@ -206,11 +231,14 @@ window.BobaRoom = (() => {
         box(equipment,steel,0,.43,0,.49,.04,.42);
         cyl(equipment,material('#fff',{transparent:true,opacity:.22,depthWrite:false}),0,.74,0,.208,.208,.59,24);
         f.brew=material('#bc865a');cyl(equipment,f.brew,0,.71,0,.191,.191,.49,24);
+        cyl(equipment,[gold,mint,rose][Number(s.id.slice(3))],0,.455,0,.215,.215,.055,24);
         cyl(equipment,steel,0,1.055,0,.224,.224,.065,24);ball(equipment,dark,0,1.10,0,.035);
         const spout=cyl(equipment,steel,0,.49,.225,.023,.023,.205,12);spout.rotation.x=Math.PI/2;
         cyl(equipment,steel,0,.456,.316,.023,.018,.069,12);
         f.handle=group(equipment,0,.50,.28);box(f.handle,rose,0,.064,0,.036,.128,.036);ball(f.handle,rose,0,.14,0,.034);
-        f.stream=cyl(equipment,f.brew,0,.29,.315,.012,.017,.29,9);f.stream.visible=false;
+        f.stream=cyl(equipment,f.brew,0,.345,.315,.012,.014,.16,9);f.stream.visible=false;
+        f.workCup=art.cup(null);f.workCup.position.set(0,.052,.315);equipment.add(f.workCup);f.workCup.visible=false;
+        f.fill=cyl(f.workCup,f.brew,0,.010,0,.074,.058,.16,18);
       }else if(s.id==='rack'){
         box(equipment,wood,0,.025,0,1.05,.05,.48);
         for(const x of [-.28,-.02])for(let i=0;i<5;i++)cyl(equipment,cream,x,.13+i*.053,0,.095,.073,.19,18);
@@ -226,14 +254,12 @@ window.BobaRoom = (() => {
         box(equipment,cream,0,.31,0,.56,.62,.49);box(equipment,dark,0,.23,.26,.38,.29,.035);
         box(equipment,steel,0,.072,.35,.34,.024,.25);box(equipment,mint,0,.49,.256,.36,.095,.025);
         f.handle=group(equipment,.29,.53,0);cyl(f.handle,steel,.074,.1,0,.019,.019,.25,10).rotation.z=-.62;ball(f.handle,rose,.15,.19,0,.051);
+        f.workCup=art.cup(null);f.workCup.position.set(0,.082,.34);f.workCup.scale.setScalar(.82);equipment.add(f.workCup);f.workCup.visible=false;
       }else if(s.id==='dessert'){
-        box(equipment,rose,0,.30,0,.78,.60,.50);box(equipment,dark,0,.27,.258,.67,.33,.025);
+        f.oven=material('#453b40',{emissive:'#ec8951',emissiveIntensity:0});
+        box(equipment,rose,0,.30,0,.78,.60,.50);box(equipment,f.oven,0,.27,.258,.67,.33,.025);
         box(equipment,steel,0,.112,.29,.59,.024,.09);for(let j=-1;j<=1;j++)ball(equipment,[mint,cream,gold][j+1],j*.17,.19,.285,.080,.062,.059);
         for(const x of [-.24,.24])cyl(equipment,cream,x,.525,.26,.045,.045,.04,12).rotation.x=Math.PI/2;
-      }else if(s.id.startsWith('cat')){
-        f.dirt=group(equipment,0,.025,0);
-        cyl(f.dirt,cream,0,.014,0,.20,.18,.026);for(let i=0;i<8;i++)ball(f.dirt,walnut,(rand()-.5)*.55,.04,rand()*.22,.022,.012,.018);
-        const empty=art.cup(null);empty.rotation.z=1.27;empty.position.set(.14,.10,-.08);f.dirt.add(empty);f.dirt.visible=false;
       }
     }
     scene.add(cam);const user=art.player(),pawMat=material(user.fur),cuff=material(user.apron),sock=material('#fff8ef'),pads=material('#f3a9bc');
@@ -246,7 +272,7 @@ window.BobaRoom = (() => {
       paw.rotation.z=-side*.12;return paw;
     });
     const hand=paws[1];
-    let carried=null,carriedKey='',lastItems={},time=0,lastW=0,lastH=0;
+    let carried=null,carriedKey='',lastItems={},time=0,lastW=0,lastH=0,stride=0,handSway=0;
     function resize(){
       const w=view.clientWidth,h=view.clientHeight;if(!w||!h||w===lastW&&h===lastH)return;
       lastW=w;lastH=h;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();
@@ -255,13 +281,16 @@ window.BobaRoom = (() => {
       lastItems=items;
       for(const s of stations){
         const f=fixtures.get(s.id),v=items[s.id];
-        f.root.visible=!!v||s.id.startsWith('cat');
-        const text=s.id.startsWith('cat')?(v?.dirty?'Wipe table':v?.label||'Pickup '+(+s.id.slice(3)+1)):(v?.label||'');
+        f.root.visible=!!v;
+        const text=s.id==='line'||s.id==='pickup'?'':v?.label||'';
         if(text!==f.label){
-          f.label=text;release(f.tagMesh);f.tagMesh=text?label(f.tag,text,s.id.startsWith('tea')?.68:.53,.115,0,-.06,.032,{bg:'#3c3837',fg:'#f4e8cf',border:'#756552'}):null;
+          f.label=text;release(f.tagMesh);f.tagMesh=text?label(f.tag,text,s.id.startsWith('tea')?1.05:.88,.17,0,-.075,.032,{bg:'#3c3837',fg:'#f4e8cf',border:'#756552'}):null;
         }
         if(f.brew&&v?.color)f.brew.color.set(v.color);
-        if(f.stream)f.stream.visible=!!v?.running;if(f.dirt)f.dirt.visible=!!v?.dirty;
+        if(f.stream)f.stream.visible=!!v?.running;
+        if(f.workCup)f.workCup.visible=!!v?.running;
+        if(f.oven)f.oven.emissiveIntensity=v?.running ? .65 : 0;
+        if(f.dirt)f.dirt.visible=!!v?.dirty;
       }
       const keep=new Set();
       for(const a of actors(items)){
@@ -277,7 +306,7 @@ window.BobaRoom = (() => {
       }
       for(const [key,a] of actorsById)if(!keep.has(key)){release(a.model.g);release(a.shadow);actorsById.delete(key);}
     }
-    function frame(dt,pose){
+    function frame(dt,pose,distance=0,sprinting=false){
       resize();time+=dt;
       cam.position.set(pose.x,eye,pose.z);
       cam.rotation.order='YXZ';cam.rotation.y=-pose.yaw;cam.rotation.x=pose.pitch;
@@ -290,11 +319,22 @@ window.BobaRoom = (() => {
         const height=motion && !t.apron && dist>.02 ? .01+(t.y-.01)*Math.max(0,1-dist/.45) : t.y;
         m.g.position.y=height+(motion?Math.sin(time*(dist>.06?12:t.working?4:2)+a.phase)*(dist>.06?.035:.015):0);
         const toward=dist>.09?Math.atan2(dx,dz):t.yaw;m.g.rotation.y+=wrap(toward-m.g.rotation.y)*blend;
-        if(motion){m.head.rotation.z=Math.sin(time*1.3+a.phase)*.035;m.tail.rotation.z=Math.sin(time*2+a.phase)*.15;
+        if(motion){const sway=t.mood==='angry'?5:t.mood==='restless'?3:1.3;
+          m.head.rotation.z=Math.sin(time*sway+a.phase)*(t.mood==='angry'?.095:.035);m.tail.rotation.z=Math.sin(time*(sway+.7)+a.phase)*.15;
           m.eyes.scale.y=Math.cos(time*1.7+a.phase)>.998?.20:1;}
       }
-      for(const [id,f] of fixtures)if(f.handle)f.handle.rotation.x=lastItems[id]?.running?-.42:0;
-      const st=config.state(),held=st?.hand,o=held&&st.orders.find(g=>g.id===held.id);
+      const st=config.state();
+      for(const [id,f] of fixtures){
+        const running=!!lastItems[id]?.running;
+        if(f.handle)f.handle.rotation.x=running?-.42:0;
+        if(f.fill){
+          const brewing=running&&st?.orders.find(o=>o.id===lastItems[id].jobId);
+          f.poured=brewing?clamp(1-brewing.cup.left/3.5,0,1):0;
+          f.fill.scale.y=Math.max(.02,f.poured);
+          f.fill.position.y=.006+f.poured*.08;
+        }
+      }
+      const held=st?.hand,o=held&&st.orders.find(g=>g.id===held.id);
       const key=o?[held.kind,o.cup.stage,o.cup.flavor,o.cup.top,o.dessert].join(':'):'';
       if(key!==carriedKey){
         carriedKey=key;release(carried);carried=null;
@@ -304,8 +344,17 @@ window.BobaRoom = (() => {
           carried.position.set(-.045,-.054,-.073);hand.add(carried);
         }
       }
-      const spread=Math.min(.26,cam.aspect*.28);paws[0].position.x=-spread;hand.position.x=spread;
-      hand.position.y=o?-.33:-.385;
+      if(carried)carried.visible=!(st.job?.id===held.id && (st.job.kind==='pour'||st.job.kind==='lid'));
+      const spread=Math.min(.26,cam.aspect*.28);
+      if(motion){
+        stride+=distance*4.5;
+        const amplitude=distance>0?(sprinting?.020:.009):0;
+        handSway+=(amplitude-handSway)*blend;
+      }
+      const bob=Math.sin(stride)*handSway;
+      paws[0].position.x=-spread;paws[0].position.y=-.385-bob;
+      hand.position.x=spread;hand.position.y=(o?-.33:-.385)+bob;
+      hand.rotation.z=-.12+Math.cos(stride)*handSway*1.6;
       renderer.render(scene,cam);
     }
     view.prepend(canvas);
@@ -345,9 +394,9 @@ window.BobaRoom = (() => {
     plane(0,1.92,-10.96,12,3.84,0,'bw-wall bw-frontwall','<div class="bw-window"><i class="bw-moon"></i><i class="bw-skyline"></i><i class="bw-panes"></i></div><div class="bw-door"><b></b></div>');
     plane(0,3.43,-10.81,3.28,.46,0,'bw-hanging-sign','Midnight Paws Boba');
     plane(4.50,2.03,-6.28,1.67,1.94,-22,'bw-slate','<b>MENU</b><span>Classic Milk Tea</span><span>Jasmine Milk Tea</span><span>Brown Sugar Milk</span>');
-    plane(0,1.81,3.78,9.8,3.62,180,'bw-wall bw-backwall',sign(76,'THE TEA BAR'));
+    plane(0,1.81,3.78,9.8,3.62,180,'bw-wall bw-backwall',sign(76,'TEA DISPENSERS'));
     plane(-5.93,1.92,-3.5,15,3.84,90,'bw-wall bw-westwall',sign(76,'CUPS &amp; BAKERY'));
-    plane(5.93,1.92,-3.5,15,3.84,-90,'bw-wall bw-eastwall',sign(76,'FINISHING BAR'));
+    plane(5.93,1.92,-3.5,15,3.84,-90,'bw-wall bw-eastwall',sign(76,'TOPPINGS &amp; LIDS'));
     box(0,.45,-3.17,9.72,.9,.98,'bw-counter');
     box(0,.45,3.28,9.72,.9,1.03,'bw-counter');
     box(-4.40,.45,0,1.02,.9,5.48,'bw-counter');
@@ -363,8 +412,7 @@ window.BobaRoom = (() => {
       for(const side of [-1,1]){box(x+side*.82,.43,z,.47,.09,.46,'bw-oak');box(x+side*1.03,.79,z,.08,.67,.44,'bw-oak');}
     }
     for(const s of stations){
-      const isCat=s.id.startsWith('cat');
-      const el=plane(s.x,isCat?1.52:1.48,s.z,isCat?1.05:1.26,isCat?1.1:1.05,s.angle,'bw-prop');
+      const el=plane(s.x,1.48,s.z,1.26,1.05,s.angle,'bw-prop');
       points.set(s.id,el);
     }
     function paintFallback(items) {
@@ -372,11 +420,10 @@ window.BobaRoom = (() => {
         const i=items[s.id],el=points.get(s.id);
         if(!i){el.hidden=true;continue;}
         el.hidden=false;el.classList.toggle('bw-running',!!i.running);
-        if(s.id.startsWith('cat')){
-          el.innerHTML=(i.dirty?'<div class="bw-crumbs">● · •</div>':'')+'<span class="bw-name"></span>';
-          el.lastElementChild.textContent=i.label;
+        if(s.id==='pickup'){
+          el.innerHTML='<div class="bw-pass-tray"></div>'+(i.dirty?'<div class="bw-crumbs">● · •</div>':'')+'<span class="bw-name bw-pass-name">PICKUP</span>';
         }else if(s.id==='line'){
-          el.innerHTML='<div class="bw-till"><b>OPEN</b><i></i></div><span class="bw-name">Order here</span>';
+          el.innerHTML='<div class="bw-till"><b>ORDER</b><i></i></div><span class="bw-name bw-line-name">ORDERS</span>';
         }else{
           const type=s.id.startsWith('tea')?'tea':s.id;
           el.style.setProperty('--brew',i.color||'#c79673');
@@ -390,6 +437,7 @@ window.BobaRoom = (() => {
         if(!el){el=plane(a.x,a.y+.69,a.z,1.12,1.20,0,'bw-person','<div class="bw-cat-face">'+config.portrait(a.coat)+'</div>');guestPlanes.set(a.key,el);}
         const w=1.12*unit,h=1.20*unit;
         el.style.transform='translate3d('+(a.x*unit-w/2)+'px,'+(-(a.y+.69)*unit-h/2)+'px,'+(a.z*unit)+'px) rotateY('+a.yaw+'rad)';
+        el.dataset.mood=a.mood||'calm';
         if(a.apron)el.classList.add('bw-staff');
       }
       for(const [key,el] of guestPlanes)if(!keep.has(key)){el.remove();guestPlanes.delete(key);}
@@ -400,11 +448,60 @@ window.BobaRoom = (() => {
       if(scene)scene.paint(items);else paintFallback(items);
       if(scene && config.state()?.paused)scene.frame(0,config.state().pose);
     }
-    const joystick=config.joystick;
+    const joystick=config.joystick, sprintButton=config.sprintButton;
+    const finePointer=matchMedia('(hover:hover) and (pointer:fine)');
+    let sprintToggle=false, wasLocked=false, wantsLock=false, lockAttempt=0;
+    function toggleSprint(on){
+      sprintToggle=on;
+      if(sprintButton)sprintButton.setAttribute('aria-pressed',String(on));
+    }
     function clear() {
-      keys.clear();stickX=stickY=0;drag=null;stickPointer=null;
+      keys.clear();stickX=stickY=0;drag=null;stickPointer=null;toggleSprint(false);
       joystick.style.setProperty('--jx','0px');joystick.style.setProperty('--jy','0px');
     }
+    function releaseLook(){
+      wantsLock=false;wasLocked=false;lockAttempt++;view.dataset.look='idle';
+      if(document.pointerLockElement===view)document.exitPointerLock();
+    }
+    function captureLook(){
+      if(!config.running()||!finePointer.matches)return;
+      view.focus({preventScroll:true});
+      wantsLock=true;
+      if(document.pointerLockElement===view)return;
+      view.dataset.look='drag';
+      if(!view.requestPointerLock)return;
+      const attempt=++lockAttempt;
+      try{
+        const request=view.requestPointerLock();
+        request?.then(()=>{
+          if(attempt===lockAttempt&&wantsLock&&document.pointerLockElement===view){
+            wasLocked=true;view.dataset.look='locked';
+          }
+        },()=>{if(wantsLock&&attempt===lockAttempt)view.dataset.look='drag';});
+      }catch{view.dataset.look='drag';}
+    }
+    document.addEventListener('pointerlockchange',()=>{
+      const locked=document.pointerLockElement===view,previous=wasLocked;
+      wasLocked=locked;
+      if(locked){
+        if(!wantsLock||!config.running()){releaseLook();return;}
+        view.dataset.look='locked';drag=null;
+      }else if(previous&&wantsLock){
+        wantsLock=false;view.dataset.look='idle';clear();
+        if(config.running())config.onUnlock?.();
+      }
+    });
+    function look(dx,dy,sensitivity){
+      const p=config.state().pose;
+      p.yaw=wrap(p.yaw+dx*sensitivity);
+      p.pitch=clamp(p.pitch-dy*sensitivity,-.63,.57);
+    }
+    document.addEventListener('mousemove',e=>{
+      if(document.pointerLockElement===view&&config.running())look(e.movementX,e.movementY,.0023);
+    });
+    sprintButton?.addEventListener('click',e=>{
+      e.preventDefault();if(config.running())toggleSprint(!sprintToggle);
+    });
     function thumb(e) {
       const r=joystick.getBoundingClientRect(),x=(e.clientX-r.left-r.width/2)/(r.width*.34),y=(e.clientY-r.top-r.height/2)/(r.height*.34);
       const m=Math.max(1,Math.hypot(x,y));stickX=x/m;stickY=-y/m;
@@ -418,17 +515,21 @@ window.BobaRoom = (() => {
     joystick.addEventListener('lostpointercapture',e=>{if(stickPointer!==e.pointerId)return;stickPointer=null;stickX=stickY=0;
       joystick.style.setProperty('--jx','0px');joystick.style.setProperty('--jy','0px');});
     view.addEventListener('pointerdown',e=>{
+      if(document.pointerLockElement===view){
+        if(e.button===0&&config.running()){e.preventDefault();config.use?.();}return;
+      }
       if(drag || !config.running() || e.button!==0)return;e.preventDefault();view.setPointerCapture(e.pointerId);
       drag={id:e.pointerId,x:e.clientX,y:e.clientY,travel:0};
     });
     view.addEventListener('pointermove',e=>{
       if(!drag || drag.id!==e.pointerId || !config.running())return;
-      const p=config.state().pose,dx=e.clientX-drag.x,dy=e.clientY-drag.y;
-      p.yaw=wrap(p.yaw+dx*.006);p.pitch=clamp(p.pitch-dy*.003,-.42,.42);drag.travel+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;
+      const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+      look(dx,dy,e.pointerType==='touch'?.0039:.004);
+      drag.travel+=Math.abs(dx)+Math.abs(dy);drag.x=e.clientX;drag.y=e.clientY;
     });
     view.addEventListener('pointerup',e=>{if(drag?.id===e.pointerId && drag.travel<5 && config.running())config.use?.();});
     view.addEventListener('lostpointercapture',e=>{if(drag?.id===e.pointerId)drag=null;});
-    const codes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'];
+    const codes=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','ShiftLeft','ShiftRight'];
     window.addEventListener('keydown',e=>{
       if(!config.running()||e.altKey||e.ctrlKey||e.metaKey||!codes.includes(e.code))return;
       e.preventDefault();keys.add(e.code);
@@ -439,21 +540,26 @@ window.BobaRoom = (() => {
     const observer=new ResizeObserver(resize);observer.observe(view);
     function frame(dt) {
       const p=config.state().pose;
+      let distance=0,sprint=false;
       if(config.running()){
         const turn=Number(keys.has('ArrowRight'))-Number(keys.has('ArrowLeft'));
         p.yaw=wrap(p.yaw+turn*2.05*dt);
         if(!config.state().job){
           const forward=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'))+stickY;
           const side=Number(keys.has('KeyD'))-Number(keys.has('KeyA'))+stickX;
-          const speed=3.1*dt/Math.max(1,Math.hypot(forward,side)),sin=Math.sin(p.yaw),cos=Math.cos(p.yaw);
+          sprint=sprintToggle||keys.has('ShiftLeft')||keys.has('ShiftRight');
+          const speed=(sprint?5.3:3.1)*dt/Math.max(1,Math.hypot(forward,side)),sin=Math.sin(p.yaw),cos=Math.cos(p.yaw);
+          const oldX=p.x,oldZ=p.z;
           p.x=clamp(p.x+(sin*forward+cos*side)*speed,-3.38,3.38);
           p.z=clamp(p.z+(-cos*forward+sin*side)*speed,-2.04,2.04);
+          distance=Math.hypot(p.x-oldX,p.z-oldZ);
+          if(sprint&&distance>0)config.onSprint?.(distance);
         }
       }
       world.style.transform='translateZ('+focal+'px) rotateX('+p.pitch+'rad) rotateY('+p.yaw+'rad) translate3d('+(-p.x*unit)+'px,'+(eye*unit)+'px,'+(-p.z*unit)+'px)';
-      ensureScene();scene?.frame(dt,p);
+      ensureScene();scene?.frame(dt,p,distance,sprint);
     }
-    return {frame,paint,clear,resize,turn(amount){const p=config.state().pose;p.yaw=wrap(p.yaw+amount);}};
+    return {frame,paint,clear,resize,captureLook,releaseLook,turn(amount){const p=config.state().pose;p.yaw=wrap(p.yaw+amount);}};
   }
   return {stations,spot,nearest,direction,spawn,bounded,create};
 })();

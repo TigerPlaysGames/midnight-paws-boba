@@ -48,4 +48,11 @@
 .bw-till b { font: bold 16px/1.4 system-ui, sans-serif; }
 .bw-till i { position: absolute; width: 20px; height: 12px; right: -31px; bottom: -1px; background: #e8b654; border-radius: 100% 100% 9% 9%; border-bottom: 3px solid #604f3d; }
 .bw-crumbs { position: absolute; bottom: 10%; left: 22%; right: 22%; padding: 3px; border-radius: 50%; background: #f5ebda; color: #78543a; }
+.bw-pass-tray { position:absolute; bottom:8%; left:11%; right:11%; height:13%; border:5px solid #8e6850; border-radius:14%; background:#aacbbd; box-shadow:0 4px #556d64; }
+.bw-view[data-renderer="css"] .bw-line-name { background:#314e49; border-color:#96be9c; color:#fff0cc; }
+.bw-view[data-renderer="css"] .bw-pass-name { background:#70513f; border-color:#d0a777; color:#fff0cc; }
+.bw-view[data-look="locked"], .bw-view[data-look="locked"]:active { cursor:none; }
+#bobaService .bw-sprint { touch-action:manipulation; white-space:nowrap; }
+#bobaService .bw-sprint[aria-pressed="true"] { background:#a6e4bf; color:#243d36; border-color:#b6ebcb; }
+.bw-person[data-mood="angry"] .bw-cat-face { transform:rotate(-5deg); }
 @media (prefers-reduced-motion: reduce) { .bw-person { transition: none; } }

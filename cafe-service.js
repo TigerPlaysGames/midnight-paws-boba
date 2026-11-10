@@ -5,29 +5,42 @@ window.BobaService=(()=>{
   const desserts={bao:'Steamed veggie bao',toast:'Sesame toast',onigiri:'Grilled onigiri',mochi:'Strawberry mochi',taiyaki:'Custard taiyaki',roll:'Matcha roll'};
   const roles={
     cashier:{name:'Miso',title:'Order taker',description:'Writes the front guest’s ticket.',coat:'orange',cost:12,kinds:['take']},
-    cleaner:{name:'Peach',title:'Cleaner',description:'Wipes tables so another cat can sit.',coat:'calico',cost:16,kinds:['wipe']},
+    cleaner:{name:'Peach',title:'Cleaner',description:'Clears used trays at the pickup pass.',coat:'calico',cost:16,kinds:['wipe']},
     barista:{name:'Nori',title:'Barista',description:'Brews, tops and seals drinks on the shelf.',coat:'black',cost:28,kinds:['brew','top','seal']},
     cook:{name:'Bao',title:'Cook',description:'Prepares hot snacks and desserts.',coat:'brown',cost:24,kinds:['cook']},
     server:{name:'Yuzu',title:'Server',description:'Carries finished items to the right guest.',coat:'white',cost:32,kinds:['serveCup','serveFood']}
   };
   const stages=['empty','pouring','filled','sealing','ready'];
+  const brewers=[{label:'Tea classics',color:'#ce9974'},{label:'Jasmine & green',color:'#9fba87'},{label:'Milk blends',color:'#ba8068'}];
   const arrivals=new WeakSet();
-  let app,dialog,room,state,frameId,last,saveDue,readout='',notice='',noticeUntil=0,crewOpen=false;
+  let app,dialog,room,state,frameId,last,saveDue,readout='',notice='',noticeUntil=0,crewOpen=false,briefing=false;
   const by=s=>dialog.querySelector(s),pick=a=>a[Math.floor(Math.random()*a.length)];
   const drink=id=>app.drinks.find(d=>d.id===id), orders=()=>state.orders;
   const order=id=>orders().find(o=>o.id===id), tracked=()=>order(state.selected);
   const held=()=>state.hand&&order(state.hand.id);
-  const active=()=>!!(dialog?.open && state && !state.paused && !crewOpen && !state.shift?.complete && !document.hidden);
+  const active=()=>!!(dialog?.open && state && !state.paused && !briefing && !crewOpen && state.shift.started && !state.shift.complete && !document.hidden);
   const within=(n,max)=>Number.isFinite(n)&&n>=0&&n<=max;
   const cup=()=>({stage:'empty',flavor:null,top:null,left:0});
   const count=n=>Number.isSafeInteger(n)&&n>=0;
-  const newShift=n=>({number:n,quota:Math.min(8,n+2),served:0,missed:0,earned:0,complete:false,greeted:false});
+  const newShift=n=>({number:n,quota:Math.min(8,n+2),served:0,missed:0,earned:0,timely:0,complete:false,greeted:false,started:false});
   const newStaff=()=>Object.fromEntries(Object.keys(roles).map(k=>[k,{level:0,done:0,onDuty:true,task:null}]));
   const fresh=()=>({version:3,paused:false,serial:0,arrival:3,selected:null,orders:[],pose:roomApi.spawn(),hand:null,job:null,
     shift:newShift(1),dirty:[false,false,false],staff:newStaff(),career:{shifts:0,served:0,missed:0,cleaned:0}});
   const line=()=>orders().filter(o=>!o.taken);
+  const tickets=()=>orders().filter(o=>o.taken);
   const seated=n=>orders().find(o=>o.taken&&o.seat===n);
   const freeSeat=()=>state.dirty.findIndex((dirty,n)=>!dirty&&!seated(n));
+  const dirtyTray=()=>state.dirty.findIndex((dirty,n)=>dirty&&state.staff.cleaner.task?.seat!==n);
+  const waitLimit=()=>Math.max(20,33-state.shift.number);
+  const serviceLimit=o=>Math.max(45,60-state.shift.number)+(o.dessert?12:0);
+  const mood=o=>o.left/o.limit<.25?'angry':o.left/o.limit<.55?'restless':'calm';
+  function brewer(o){
+    const ingredients=drink(o.drink).ings||[];
+    if(ingredients.some(id=>['jasmine','green','matcha'].includes(id)))return 'tea1';
+    if(ingredients.some(id=>['black','oolong','thai'].includes(id))||o.drink==='classic')return 'tea0';
+    return 'tea2';
+  }
+  function sameBrewer(otherId,o){const other=order(otherId);return other&&other!==o&&brewer(other)===brewer(o);}
   function valid(s){
     if(!app||!s||![1,2,3].includes(s.version)||typeof s.paused!=='boolean'||!count(s.serial)||
        !within(s.arrival,3)||!Array.isArray(s.orders)||s.orders.length>(s.version===3?6:3))return false;
@@ -35,6 +48,7 @@ window.BobaService=(()=>{
     for(const o of s.orders){
       if(!o||!Number.isSafeInteger(o.id)||o.id<1||o.id>s.serial||ids.has(o.id)||!app.names.includes(o.name)||
         !app.coats.some(c=>c.id===o.coat)||!drink(o.drink)||(o.top!==null&&!app.tops.includes(o.top))||
+        (o.greetingQuality!==undefined&&!within(o.greetingQuality,1))||
         (o.dessert!==null&&!Object.hasOwn(desserts,o.dessert))||!within(o.limit,120)||o.limit<1||!within(o.left,o.limit)||
         !(s.version===1?['none','waiting','baking','done']:['none','waiting','baking','done','given']).includes(o.side)||!within(o.bake,ovenTime))return false;
       const c=o.cup;
@@ -53,7 +67,8 @@ window.BobaService=(()=>{
     if(s.version===3){
       const f=s.shift,staff=s.staff,career=s.career;
       if(!f||!count(f.number)||f.number<1||f.quota!==Math.min(8,f.number+2)||!count(f.served)||!count(f.missed)||
-         f.greeted!==undefined&&typeof f.greeted!=='boolean'||
+         f.greeted!==undefined&&typeof f.greeted!=='boolean'||f.started!==undefined&&typeof f.started!=='boolean'||
+         f.started===false&&(f.served>0||f.missed>0||f.complete||s.orders.length>0)||f.timely!==undefined&&(!count(f.timely)||f.timely>f.served)||
          !count(f.earned)||f.served+s.orders.length>f.quota||f.complete!==(f.served===f.quota)||
          !Array.isArray(s.dirty)||s.dirty.length!==3||s.dirty.some((d,i)=>typeof d!=='boolean'||d&&seats.has(i))||
          !staff||!career||!['shifts','served','missed','cleaned'].every(k=>count(career[k])))return false;
@@ -91,6 +106,8 @@ window.BobaService=(()=>{
   function migrate(s){
     if(s.version===3){
       if(s.shift.greeted===undefined)s.shift.greeted=s.shift.served>0||s.orders.length>1||s.orders.some(o=>o.taken);
+      if(s.shift.started===undefined)s.shift.started=true;
+      if(s.shift.timely===undefined)s.shift.timely=0;
       return s;
     }
     if(s.version===1){
@@ -98,7 +115,7 @@ window.BobaService=(()=>{
       Object.assign(s,{pose:roomApi.spawn(),job:null,hand:null});
     }
     for(const o of s.orders)if(!o.taken)o.seat=null;
-    const v=fresh();v.shift.greeted=s.orders.length>1||s.orders.some(o=>o.taken);
+    const v=fresh();v.shift.started=true;v.shift.greeted=s.orders.length>1||s.orders.some(o=>o.taken);
     return Object.assign(s,{version:3,shift:v.shift,staff:v.staff,dirty:v.dirty,career:v.career});
   }
   function arrive(){
@@ -107,7 +124,7 @@ window.BobaService=(()=>{
     const recipe=!state.serial?drinks[0]:pick(different.length?different:drinks);
     const id=++state.serial;
     const dessert=id%2===0?pick(app.state.level>=3?Object.keys(desserts):['bao','toast','onigiri']):null;
-    const limit=(app.state.level===1?55:48)+(dessert?12:0);
+    const limit=waitLimit();
     const cats=app.coats.filter(c=>!c.rare||(app.state.level>=3&&Math.random()<.15));
     orders().push({id,seat:null,taken:false,name:pick(app.names.filter(n=>!orders().some(o=>o.name===n))),coat:pick(cats).id,
       drink:recipe.id,top:tops.length && id%3!==0?pick(tops):null,dessert,limit,left:limit,
@@ -128,8 +145,8 @@ window.BobaService=(()=>{
   function take(o,track){
     const seat=freeSeat();
     if(!o||o!==line()[0]||seat<0)return false;
-    o.taken=true;o.seat=seat;
-    if(!state.shift.greeted){state.shift.greeted=true;state.arrival=arrivalTime;}
+    o.greetingQuality=o.left/o.limit;o.limit=serviceLimit(o);o.left=o.limit;o.taken=true;o.seat=seat;
+    if(!state.shift.greeted)state.shift.greeted=true;
     if(track||!tracked())state.selected=o.id;
     if(state.staff.cashier.task?.id===o.id)state.staff.cashier.task=null;
     return true;
@@ -137,12 +154,15 @@ window.BobaService=(()=>{
   function give(o,kind){
     if(kind==='dessert')o.side='given';else o.cupAt='given';
     if(o.cupAt!=='given'||(o.dessert&&o.side!=='given'))return false;
+    const quality=Math.min(o.greetingQuality??1,o.left/o.limit);
     remove(o.id);state.shift.served++;state.career.served++;
+    if(quality>=.45)state.shift.timely++;
     if(state.shift.served===state.shift.quota){
       state.shift.complete=true;state.career.shifts++;state.job=null;
       for(const worker of Object.values(state.staff))worker.task=null;
     }
-    const pay=app.reward(o);state.shift.earned+=pay;say(o.name+' loved it! +$'+pay);
+    const pay=app.reward(o);state.shift.earned+=pay;
+    say(o.name+(quality<.25?' left a small tip.':quality<.55?' collected their order.':' loved it!')+' +$'+pay);
     return true;
   }
   function wipe(seat){state.dirty[seat]=false;state.career.cleaned++;}
@@ -170,6 +190,7 @@ window.BobaService=(()=>{
         if(!['shelf','unused'].includes(g.cupAt)||g.cup.stage==='ready')continue;
         const c=g.cup;
         if(c.stage==='empty'||c.stage==='pouring'){
+          if(state.job?.kind==='pour'&&sameBrewer(state.job.id,g))continue;
           const remaining=c.stage==='pouring'?c.left:pourTime;
           g.cupAt='shelf';Object.assign(c,{stage:'pouring',flavor:g.drink,left:remaining});
           return make('brew',g.id,g.seat,remaining);
@@ -217,18 +238,21 @@ window.BobaService=(()=>{
   function startNext(){
     if(!state.shift.complete)return;
     state.shift=newShift(state.shift.number+1);state.paused=false;state.arrival=arrivalTime;
-    state.selected=null;state.job=null;state.hand=null;arrive();last=performance.now();room.clear();app.save();render();
+    state.selected=null;state.job=null;state.hand=null;state.dirty.fill(false);state.pose=roomApi.spawn();briefing=true;
+    last=performance.now();room.clear();room.frame(0);app.save();render();by('[data-service="begin"]').focus({preventScroll:true});
   }
   function advance(dt){
     let changed=false;
     for(const o of [...orders()]){
-      o.left=Math.max(0,o.left-dt*(o.taken?1:.6));
-      if(!o.left){remove(o.id);state.shift.missed++;state.career.missed++;app.state.combo=0;say(o.name+' headed home.');changed=true;}
+      const was=mood(o);
+      o.left=Math.max(0,o.left-dt*(o.taken||o===line()[0]?1:.65));
+      if(!o.left){remove(o.id);state.shift.missed++;state.career.missed++;app.state.combo=0;say(o.name+' left '+(o.taken?'without their order.':'before ordering.'));changed=true;}
+      else if(was!==mood(o))changed=true;
     }
     const job=state.job;
     if(job?.kind==='clean'){
       job.left=Math.max(0,job.left-dt);
-      if(!job.left){wipe(job.seat);state.job=null;changed=true;say('Table ready for the next guest.');}
+      if(!job.left){wipe(job.seat);state.job=null;changed=true;say('Clean tray ready for the next guest.');}
     }else if(job){
       const o=order(job.id),dessert=job.kind==='dessert';
       const left=Math.max(0,(dessert?o.bake:o.cup.left)-dt);
@@ -241,56 +265,55 @@ window.BobaService=(()=>{
       }
     }
     if(workCrew(dt))changed=true;
-    if(!state.shift.complete&&(state.shift.greeted||!orders().length)&&orders().length<state.shift.quota-state.shift.served&&line().length<3){
+    const queueCap=state.shift.greeted?3:2;
+    if(!state.shift.complete&&orders().length<state.shift.quota-state.shift.served&&line().length<queueCap){
       state.arrival=Math.max(0,state.arrival-dt);
       if(!state.arrival){arrive();changed=true;}
     }
     return changed;
   }
   function quest(){
-    if(state.shift.complete)return [null,'Shift complete'];
+    if(briefing)return [null,'Prepare for round '+state.shift.number];
+    if(state.shift.complete)return [null,'Round complete'];
     if(state.job){
-      if(state.job.kind==='clean')return ['cat'+state.job.seat,'Wiping the table'];
+      if(state.job.kind==='clean')return ['pickup','Cleaning the pickup pass'];
       const o=order(state.job.id);
-      return state.job.kind==='pour'?['tea'+o.seat,'Filling the cup']:state.job.kind==='lid'?['lid','Pressing the lid']:['dessert','Preparing '+desserts[o.dessert]];
+      return state.job.kind==='pour'?[brewer(o),'Filling the cup']:state.job.kind==='lid'?['lid','Pressing the lid']:['dessert','Preparing '+desserts[o.dessert]];
     }
     const h=held(),o=h||tracked();
-    if(h && state.hand.kind==='dessert')return ['cat'+h.seat,'Deliver '+desserts[h.dessert]+' to '+h.name];
+    if(h && state.hand.kind==='dessert')return ['pickup','Bring '+h.name+'’s food to pickup'];
     if(h){
-      if(['empty','pouring'].includes(h.cup.stage))return ['tea'+h.seat,'Brew '+drink(h.drink).name];
+      if(['empty','pouring'].includes(h.cup.stage))return [brewer(h),'Brew '+drink(h.drink).name+' at '+stationName(brewer(h))];
       if(h.cup.stage==='filled'&&h.cup.top!==h.top)return ['top','Scoop '+app.ingredients[h.top].name];
       if(h.cup.stage!=='ready')return ['lid','Seal the cup'];
-      return ['cat'+h.seat,'Give '+h.name+' the sealed drink'];
+      return ['pickup','Bring '+h.name+'’s drink to pickup'];
     }
     if(o && o.cupAt!=='given'&&!assigned('barista',o.id)&&!assigned('server',o.id,'serveCup'))
       return ['rack',o.cupAt==='shelf'?'Pick up '+o.name+'’s saved cup':'Pick up a cup for '+o.name];
     if(o?.dessert && o.side!=='given'&&!assigned('cook',o.id)&&!assigned('server',o.id,'serveFood'))return ['dessert','Prepare '+desserts[o.dessert]];
     const guest=line()[0];
     if(guest&&freeSeat()>=0&&!assigned('cashier',guest.id))return ['line','Ask '+guest.name+' for their order'];
-    const dirty=state.dirty.findIndex((d,n)=>d&&state.staff.cleaner.task?.seat!==n);
-    if(dirty>=0)return ['cat'+dirty,'Wipe table '+(dirty+1)];
-    if(o)return ['cat'+o.seat,'Your crew is helping '+o.name];
-    return [null,guest?'Waiting for a clean table':'The next guest is on the way'];
+    if(dirtyTray()>=0)return ['pickup','Clear a tray at pickup'];
+    if(o)return ['pickup','Your crew is helping '+o.name];
+    return [null,guest?'Waiting for a clean tray':'The next guest is on the way'];
   }
   function stationName(id){
     if(!id)return '';
-    if(id==='line')return 'Order counter';
-    if(id.startsWith('cat'))return seated(Number(id.slice(3)))?.name||'Table '+(Number(id.slice(3))+1);
-    if(id.startsWith('tea'))return 'Brewer '+(Number(id.slice(3))+1);
+    if(id==='line')return 'Register';
+    if(id==='pickup')return 'Pickup pass';
+    if(id.startsWith('tea'))return brewers[Number(id.slice(3))].label;
     return {rack:'Cup shelf',top:'Boba bowl',lid:'Lid press',dessert:'Food oven'}[id];
   }
-  const exists=id=>id==='line'?!!line().length:id.startsWith('cat')?!!seated(Number(id.slice(3)))||state.dirty[Number(id.slice(3))]:true;
+  const exists=id=>id==='line'?!!line().length:id==='pickup'?tickets().length>0||state.dirty.includes(true):true;
   function action(at){
     if(!at)return '';
     if(state.job)return '';
     const h=held(),o=tracked();
     if(at==='line'){const head=line()[0];return head&&freeSeat()>=0?'Ask '+head.name:'';}
-    if(at.startsWith('cat')){
-      const n=Number(at.slice(3)),guest=seated(n);
-      if(state.dirty[n]&&!h&&state.staff.cleaner.task?.seat!==n)return 'Wipe table '+(n+1);
-      if(!guest)return '';
-      if(h?.id===guest.id && (state.hand.kind==='dessert'||h.cup.stage==='ready'))return 'Hand to '+guest.name;
-      return h?'':'Track '+guest.name+'’s order';
+    if(at==='pickup'){
+      if(h&&(state.hand.kind==='dessert'||h.cup.stage==='ready'))return 'Serve '+h.name;
+      if(!h&&dirtyTray()>=0)return 'Clear pickup tray';
+      return '';
     }
     if(at==='rack'){
       if(h && state.hand.kind==='cup')return 'Set cup on shelf';
@@ -299,7 +322,8 @@ window.BobaService=(()=>{
     if(at==='dessert'&&!h&&o?.dessert&&!['none','given'].includes(o.side)&&!assigned('server',o.id,'serveFood')&&
        (o.side==='done'||!state.staff.cook.task))return o.side==='done'?'Pick up '+desserts[o.dessert]:'Make '+desserts[o.dessert];
     if(!h||state.hand.kind!=='cup')return '';
-    if(at==='tea'+h.seat && ['empty','pouring'].includes(h.cup.stage))return h.cup.stage==='pouring'?'Continue brewing':'Start '+drink(h.drink).name;
+    const teamBrew=state.staff.barista.task;
+    if(at===brewer(h) && ['empty','pouring'].includes(h.cup.stage)&&!(teamBrew?.kind==='brew'&&sameBrewer(teamBrew.id,h)))return h.cup.stage==='pouring'?'Continue brewing':'Start '+drink(h.drink).name;
     if(at==='top' && h.cup.stage==='filled' && h.top && !h.cup.top)return 'Scoop '+app.ingredients[h.top].name;
     if(at==='lid'&&state.staff.barista.task?.kind!=='seal' && ['filled','sealing'].includes(h.cup.stage) && h.top===h.cup.top)return 'Press lid';
     return '';
@@ -312,13 +336,12 @@ window.BobaService=(()=>{
     if(at==='line'){
       const front=line()[0];
       if(take(front,true))say(front.name+'’s ticket is on the rail.');
-    }else if(at.startsWith('cat')){
-      const n=Number(at.slice(3)),g=seated(n);
-      if(state.dirty[n])state.job={kind:'clean',seat:n,left:cleanTime};
-      else if(h?.id===g.id){
+    }else if(at==='pickup'){
+      if(!h)state.job={kind:'clean',seat:dirtyTray(),left:cleanTime};
+      else{
         const kind=state.hand.kind;state.hand=null;
-        if(!give(g,kind)){state.selected=g.id;say(g.name+' received the '+(kind==='cup'?'drink.':'food.'));}
-      }else{state.selected=g.id;say('Tracking '+g.name+'’s order.');}
+        if(!give(h,kind)){state.selected=h.id;say(h.name+' received the '+(kind==='cup'?'drink.':'food.'));}
+      }
     }else if(at==='rack'){
       if(h){h.cupAt='shelf';state.hand=null;say('Cup parked on '+h.name+'’s shelf.');}
       else{o.cupAt='hand';state.hand={kind:'cup',id:o.id};}
@@ -330,33 +353,40 @@ window.BobaService=(()=>{
     else{if(h.cup.stage!=='pouring')h.cup.left=pourTime;h.cup.flavor=h.drink;h.cup.stage='pouring';state.job={id:h.id,kind:'pour'};}
     app.save();render();
   }
+  function sprint(metres){
+    const guest=held();
+    if(!active()||state.job||state.hand?.kind!=='cup'||guest?.cup.stage!=='filled'||!Number.isFinite(metres)||metres<=0)return;
+    // An open drink has about a 2% chance of spilling over a five-metre dash, regardless of frame rate.
+    if(Math.random()>=-Math.expm1(-.004*metres))return;
+    guest.cup=cup();say('Spilled! Refill '+guest.name+'’s cup at '+stationName(brewer(guest))+'.');app.save();render();
+  }
   function color(id){return id==='classic'?'#c88a60':id==='jasminemt'?'#a4bd80':id==='bsmilk'?'#ac7055':app.ingredients[drink(id).ings[0]].c;}
   function objects(){
+    const actor=o=>({id:o.id,name:o.name,coat:o.coat,mood:mood(o),arriving:arrivals.has(o)});
     const items={rack:{label:'Cup shelf'},top:{label:'Boba bowl'},lid:{label:'Lid press',running:state.job?.kind==='lid'||state.staff.barista.task?.kind==='seal'},
       dessert:{label:'Food oven',running:state.job?.kind==='dessert'||!!state.staff.cook.task},
-      line:{label:'Order here',guests:line().map(o=>({id:o.id,name:o.name,coat:o.coat,arriving:arrivals.has(o)}))},crew:[]};
-    for(let n=0;n<3;n++){
-      const o=seated(n),recipe=o?drink(o.drink):null;
-      items['tea'+n]={label:recipe?recipe.name:'Brewer '+(n+1),color:recipe?color(recipe.id):['#ce9974','#9fba87','#ba8068'][n],
-        running:!!o&&(state.job?.kind==='pour'&&state.job.id===o.id||assigned('barista',o.id,'brew'))};
-      if(o)items['cat'+n]={id:o.id,label:o.name,coat:o.coat,taken:o.taken};
-      else if(state.dirty[n])items['cat'+n]={label:'Wipe table '+(n+1),dirty:true};
+      line:{label:'Register',guests:line().map(actor)},pickup:{label:'Pickup pass',dirty:state.dirty.includes(true),guests:tickets().map(actor)},crew:[]};
+    const pouring=order(state.job?.kind==='pour'?state.job.id:null),staffPour=state.staff.barista.task,teamCup=order(staffPour?.kind==='brew'?staffPour.id:null);
+    for(const [n,machine] of brewers.entries()){
+      const id='tea'+n;
+      const brewing=pouring&&brewer(pouring)===id?pouring:teamCup&&brewer(teamCup)===id?teamCup:null;
+      items[id]={...machine,running:!!brewing,jobId:brewing?.id??null};
     }
     for(const [role,w] of Object.entries(state.staff))if(w.level&&w.onDuty){
-      const t=w.task,n=t?.seat??0;
-      const anchor={take:'line',wipe:'cat'+n,brew:'tea'+n,top:'top',seal:'lid',cook:'dessert',serveCup:'cat'+n,serveFood:'cat'+n};
+      const t=w.task;
+      const anchor={take:'line',wipe:'pickup',brew:t?.kind==='brew'?brewer(order(t.id)):'tea0',top:'top',seal:'lid',cook:'dessert',serveCup:'pickup',serveFood:'pickup'};
       items.crew.push({role,name:roles[role].name,coat:roles[role].coat,working:!!t,
-        station:t?anchor[t.kind]:{cashier:'line',cleaner:'cat1',barista:'tea0',cook:'dessert',server:'rack'}[role]});
+        station:t?anchor[t.kind]:{cashier:'line',cleaner:'pickup',barista:'tea0',cook:'dessert',server:'rack'}[role]});
     }
     return items;
   }
   function ticket(o){
-    return '<button type="button" class="bs-ticket" data-service="track" data-id="'+o.id+'" aria-pressed="'+(state.selected===o.id)+'"><span><b>#'+String(o.id).padStart(2,'0')+' · '+o.name+'</b><i data-time="'+o.id+'"></i></span><strong>'+drink(o.drink).name+'</strong><small>'+(o.top?app.ingredients[o.top].name:'No topping')+(o.dessert?' + '+desserts[o.dessert]:'')+'</small><i class="bs-meter"><i data-patience="'+o.id+'"></i></i></button>';
+    return '<button type="button" class="bs-ticket" data-service="track" data-id="'+o.id+'" data-mood="'+mood(o)+'" aria-pressed="'+(state.selected===o.id)+'"><span><b>#'+String(o.id).padStart(2,'0')+' · '+o.name+'</b><i data-time="'+o.id+'"></i></span><strong>'+drink(o.drink).name+'</strong><small>'+(o.top?app.ingredients[o.top].name:'No topping')+(o.dessert?' + '+desserts[o.dessert]:'')+'</small><i class="bs-meter"><i data-patience="'+o.id+'"></i></i></button>';
   }
   function taskText(t){
     if(!t)return 'Waiting for work';
     const o=order(t.id),guest=o?.name||'guest';
-    return {take:'Taking '+guest+'’s order',wipe:'Wiping table '+(t.seat+1),brew:'Brewing for '+guest,top:'Adding boba for '+guest,
+    return {take:'Taking '+guest+'’s order',wipe:'Clearing a pickup tray',brew:'Brewing for '+guest,top:'Adding boba for '+guest,
       seal:'Sealing '+guest+'’s cup',cook:'Cooking '+(o?desserts[o.dessert]:'food'),serveCup:'Taking a drink to '+guest,serveFood:'Taking food to '+guest}[t.kind];
   }
   function staffCost(role){return roles[role].cost*(state.staff[role].level+1);}
@@ -380,7 +410,9 @@ window.BobaService=(()=>{
   }
   function toggleCrew(show){
     crewOpen=show;room.clear();last=performance.now();render();
-    (show?by('[data-service="crewclose"]'):by('[data-service="crew"]')).focus({preventScroll:true});
+    if(show){room.releaseLook();by('[data-service="crewclose"]').focus({preventScroll:true});}
+    else if(active())playLook();
+    else (briefing?by('[data-service="begin"]'):state.shift.complete?by('[data-service="next"]'):by('.bs-paused [data-service="pause"]')).focus({preventScroll:true});
   }
   function purchase(role){
     if(!crewOpen||!Object.hasOwn(roles,role))return;
@@ -394,29 +426,42 @@ window.BobaService=(()=>{
     w.onDuty=!w.onDuty;if(!w.onDuty)w.task=null;app.save();render();
   }
   function render(){
-    const previous=document.activeElement?.dataset.id,taken=orders().filter(o=>o.taken);
+    const previous=document.activeElement?.dataset.id,taken=tickets();
     by('.bs-tickets').innerHTML=taken.map(ticket).join('');
     if(previous)by('[data-service="track"][data-id="'+Number(previous)+'"]')?.focus({preventScroll:true});
     by('.bs-money').textContent='$'+Math.floor(app.state.money);by('.bs-level').textContent='Lv '+app.state.level;
     by('.bw-xp i').style.width=(Math.min(1,app.state.xp/(60+30*(app.state.level-1)))*100)+'%';
     by('.bs-pause').textContent=state.paused?'▶ Resume':'Ⅱ Pause';by('.bs-pause').setAttribute('aria-pressed',String(state.paused));
     const f=state.shift;
-    by('.bw-shift-count').textContent='Shift '+f.number+' · '+f.served+'/'+f.quota+' served';
-    const waiting=line().length;by('.bw-line-count').textContent=waiting?waiting+' in line':'';
+    by('.bw-shift-count').textContent='Round '+f.number+' · '+f.served+'/'+f.quota+' served';
     const workers=Object.entries(state.staff).filter(([,w])=>w.task);
     by('.bw-on-floor').textContent=workers.length?roles[workers[0][0]].name+' · '+taskText(workers[0][1].task):'';
-    by('.bs-pause').disabled=crewOpen||f.complete;
-    by('.bs-work').inert=state.paused||crewOpen||f.complete;by('.bs-paused').hidden=!state.paused||crewOpen||f.complete;
+    by('.bs-pause').disabled=briefing||crewOpen||f.complete;
+    by('.bs-work').inert=briefing||state.paused||crewOpen||f.complete;by('.bs-paused').hidden=briefing||!state.paused||crewOpen||f.complete;
     by('.bw-crewboard').hidden=!crewOpen;by('.bw-receipt').hidden=!f.complete||crewOpen;
+    const brief=by('.bw-briefing');brief.hidden=!briefing||crewOpen;
+    if(briefing){
+      by('.bw-round-title').textContent='Round '+f.number;
+      by('.bw-round-goal').textContent='Serve '+f.quota+' cats';
+      const info=by('.bw-round-saved');info.hidden=!f.started;
+      info.textContent=f.started?'Saved round · '+f.served+'/'+f.quota+' served'+(taken.length?' · '+taken.length+' open '+(taken.length===1?'ticket':'tickets'):''):'';
+      by('[data-service="begin"]').textContent=f.started?'Resume round':'Start round';
+    }
     if(crewOpen)crewPanel();
-    if(f.complete){by('.bw-receipt h2').textContent='Shift '+f.number+' complete!';
-      by('.bw-receipt p').textContent=f.served+' guests served · $'+f.earned+' in orders'+(f.missed?' · '+f.missed+' left early':'');}
+    if(f.complete){
+      room.releaseLook();by('.bw-receipt h2').textContent='Round '+f.number+' complete!';
+      by('.bw-receipt p').textContent=f.served+' guests served · $'+f.earned+' earned';
+      const ratings=[[true,'Service goal met'],[f.missed===0,'No guests left early'],[f.timely===f.quota,'Every guest greeted and served promptly']];
+      const stars=ratings.filter(([earned])=>earned).length,badge=by('.bw-round-stars');badge.textContent='★'.repeat(stars)+'☆'.repeat(3-stars);badge.setAttribute('aria-label',stars+' of 3 stars');
+      by('.bw-round-ratings').innerHTML=ratings.map(([earned,label])=>'<li data-earned="'+earned+'" aria-label="'+(earned?'Earned: ':'Missed: ')+label+'">'+label+'</li>').join('');
+    }
     const h=held(),hand=by('.bw-hand');
     hand.hidden=!h;
     if(h){const dessert=state.hand.kind==='dessert';
       hand.className='bw-hand '+(dessert?'bw-h-dessert':h.cup.stage==='ready'?'bw-h-cup bw-sealed':'bw-h-cup')+(h.cup.top?' bw-topped':'');
-      hand.style.setProperty('--brew',h.cup.flavor?color(h.cup.flavor):'#e3cbb943');hand.querySelector('b').textContent=h.name+' · '+(dessert?desserts[h.dessert]:h.cup.stage==='ready'?'Sealed cup':h.cup.flavor?drink(h.cup.flavor).name:'Empty cup');}
-    room.paint(objects());readout='';markers();
+      const contents=dessert?desserts[h.dessert]:h.cup.stage==='ready'?'Sealed cup':h.cup.stage==='filled'?'Open cup · '+drink(h.cup.flavor).name:h.cup.flavor?drink(h.cup.flavor).name:'Empty cup';
+      hand.style.setProperty('--brew',h.cup.flavor?color(h.cup.flavor):'#e3cbb943');hand.querySelector('b').textContent=h.name+' · '+contents;}
+    room.paint(objects());if(!active())room.frame(0);readout='';markers();patienceDisplay();
   }
   function markers(){
     const at=roomApi.nearest(state.pose,exists),[to,title]=quest(),dir=roomApi.direction(state.pose,to),cmd=action(at);
@@ -448,34 +493,55 @@ window.BobaService=(()=>{
       room.frame(dt);
       if(advance(dt)){app.save();render();}
       markers();
-      for(const o of orders()){
-        const meter=by('[data-patience="'+o.id+'"]'),time=by('[data-time="'+o.id+'"]');
-        if(meter)meter.style.transform='scaleX('+o.left/o.limit+')';if(time)time.textContent=Math.ceil(o.left)+'s';
-      }
+      patienceDisplay();
       if(now>=saveDue){app.save();saveDue=now+1000;const w=document.getElementById('saveWarning');by('.bs-save-warning').textContent=w.hidden?'':w.textContent;}
     }
     frameId=requestAnimationFrame(heartbeat);
   }
-  function pause(){if(crewOpen||state.shift.complete)return;state.paused=!state.paused;room.clear();last=performance.now();app.save();render();}
+  function patienceDisplay(){
+    const queue=line(),head=queue[0],lineLabel=by('.bw-line-count');
+    const note=head?queue.length+' in line · '+(mood(head)==='calm'?'':mood(head)+' · ')+Math.ceil(head.left)+'s':'';
+    if(lineLabel.textContent!==note){lineLabel.textContent=note;lineLabel.dataset.mood=head?mood(head):'';}
+    for(const o of tickets()){
+      const meter=by('[data-patience="'+o.id+'"]'),time=by('[data-time="'+o.id+'"]');
+      if(meter)meter.style.transform='scaleX('+o.left/o.limit+')';
+      const text=(mood(o)==='calm'?'':mood(o)+' · ')+Math.ceil(o.left)+'s';if(time&&time.textContent!==text)time.textContent=text;
+    }
+  }
+  function playLook(){by('.bw-view').focus({preventScroll:true});room.captureLook();}
+  function begin(){
+    if(!briefing||crewOpen||state.shift.complete)return;
+    briefing=false;state.paused=false;state.shift.started=true;
+    if(!orders().length)arrive();
+    room.clear();last=performance.now();saveDue=last+1000;render();app.save();playLook();
+  }
+  function pause(){
+    if(briefing||crewOpen||state.shift.complete)return;
+    state.paused=!state.paused;room.clear();last=performance.now();app.save();render();
+    if(state.paused){room.releaseLook();by('.bs-paused [data-service="pause"]').focus({preventScroll:true});}else playLook();
+  }
   function open(){
     if(dialog.open)return;app.enter();state=app.state.cafeService;
-    state=app.state.cafeService=valid(state)?migrate(state):fresh();crewOpen=false;if(!orders().length&&!state.paused&&!state.shift.complete)arrive();
+    state=app.state.cafeService=valid(state)?migrate(state):fresh();crewOpen=false;briefing=!state.shift.complete;
     const avatar=by('.bw-avatar'),original=document.querySelector('.hud .brand .avatar svg');
     if(original)avatar.replaceChildren(original.cloneNode(true));else avatar.innerHTML=app.portrait(app.state.me?.coat||app.coats[0].id);
     by('.bs-brand h1').textContent=(app.state.me?.name||'Chef')+'’s Café';
-    dialog.showModal();room.clear();room.resize();room.frame(0);notice='';noticeUntil=0;render();app.save();by('.bw-view').focus({preventScroll:true});
+    dialog.showModal();room.clear();room.resize();room.frame(0);notice='';noticeUntil=0;render();app.save();
+    (briefing?by('[data-service="begin"]'):by('[data-service="next"]')).focus({preventScroll:true});
     last=performance.now();saveDue=last+1000;cancelAnimationFrame(frameId);frameId=requestAnimationFrame(heartbeat);
   }
   function init(config){
     app=config;dialog=document.getElementById('bobaService');
     dialog.innerHTML='<header class="bs-head"><div class="bs-brand"><button class="bs-exit bw-home" data-service="close" type="button" aria-label="Main menu" title="Main menu"></button><i class="bw-avatar" aria-hidden="true"></i><h1>Chef’s Café</h1></div><div class="bs-head-actions"><div class="bw-currency" title="Tips"><b class="bs-money"></b></div><div class="bw-levelchip" title="Café level"><span class="bs-level"></span><i class="bw-xp"><i></i></i></div><button class="bs-exit bw-crew-button" data-service="crew" type="button">Crew</button><button class="bs-pause" data-service="pause" type="button"></button></div></header>'+
-    '<main class="bs-work"><div class="bw-view" tabindex="0" aria-label="First-person café. Use W A S D to walk, drag or use left and right arrows to look, and E to interact."></div><section class="bw-rail" aria-label="Order rail"><div class="bw-shift-label"><b class="bw-shift-count"></b><small class="bw-line-count"></small></div><div class="bs-tickets"></div><small class="bw-on-floor"></small></section><div class="bw-map" role="img"><i class="bw-player"></i><i class="bw-dest"></i></div><i class="bw-reticle" aria-hidden="true"></i>'+
+    '<main class="bs-work"><div class="bw-view" tabindex="0" aria-label="First-person café. Move the mouse to look, WASD to walk, Shift to sprint, E to interact, and Q to switch tickets. Escape pauses and shows the cursor."></div><section class="bw-rail" aria-label="Order rail"><div class="bw-shift-label"><b class="bw-shift-count"></b><small class="bw-line-count"></small></div><div class="bs-tickets"></div><small class="bw-on-floor"></small></section><div class="bw-map" role="img"><i class="bw-player"></i><i class="bw-dest"></i></div><i class="bw-reticle" aria-hidden="true"></i>'+
     '<div class="bw-hand" hidden><div class="bw-held-art"><i></i><i></i></div><b></b></div><div class="bw-controls"><div class="bw-joystick" aria-label="Movement stick"><i></i></div><div class="bw-guide"><strong class="bw-step"></strong><small class="bw-way"></small><i class="bw-job" hidden><i></i></i><small class="bs-msg" role="status"></small></div><button class="bw-use" type="button" data-service="use"></button></div>'+
-    '<div class="bw-legend"><span class="bw-desktop-keys">WASD walk · Drag / ← → look · E interact</span><span class="bw-mobile-keys">Move with the stick · Drag to look</span><span class="bw-turns"><button type="button" data-service="left" aria-label="Turn left">↶</button><button type="button" data-service="right" aria-label="Turn right">↷</button></span></div></main>'+
-    '<aside class="bs-paused" hidden><div><span>☾</span><h2>Café paused</h2><p>Your cats and machines will wait.</p><button type="button" data-service="pause">Resume shift</button></div></aside>'+
-    '<aside class="bw-receipt" hidden><section role="status"><small>Midnight Paws Café</small><h2></h2><p></p><button type="button" data-service="next">Open next shift</button></section></aside>'+
+    '<div class="bw-legend"><span class="bw-desktop-keys">WASD walk · Mouse look · Shift sprint · E use · Q tickets · C crew · Esc pause</span><span class="bw-mobile-keys">Stick to walk · Drag to look</span><span class="bw-turns"><button type="button" class="bw-sprint" aria-pressed="false">Sprint</button><button type="button" data-service="left" aria-label="Turn left">↶</button><button type="button" data-service="right" aria-label="Turn right">↷</button></span></div></main>'+
+    '<aside class="bs-paused" hidden><div><span>☾</span><h2>Round paused</h2><p>Your cats and machines will wait.</p><button type="button" data-service="pause">Resume round</button></div></aside>'+
+    '<aside class="bw-receipt" hidden><section role="status"><small>Midnight Paws Café</small><h2></h2><div class="bw-round-stars" role="img"></div><p></p><ul class="bw-round-ratings"></ul><button type="button" data-service="next">Next round</button></section></aside>'+
     '<aside class="bw-crewboard" hidden><section role="dialog" aria-label="Café crew"><header><div><h2>Café crew</h2><strong class="bw-crew-wallet"></strong></div><button type="button" data-service="crewclose">Back to café</button></header><div class="bw-crew-list"></div></section></aside><div class="bs-save-warning" role="alert"></div>';
-    room=roomApi.create(by('.bw-view'),{state:()=>state,running:active,use:interact,portrait:app.portrait,joystick:by('.bw-joystick')});
+    dialog.append(document.getElementById('bwRoundBrief').content.cloneNode(true));
+    room=roomApi.create(by('.bw-view'),{state:()=>state,running:active,use:interact,portrait:app.portrait,joystick:by('.bw-joystick'),sprintButton:by('.bw-sprint'),
+      onSprint:sprint,onUnlock(){if(active())pause();}});
     by('.bw-home').append(document.querySelector('#homeBtn svg').cloneNode(true));
     by('.bw-currency').prepend(document.querySelector('#moneyChip svg').cloneNode(true));
     let touchUseAt=-Infinity;
@@ -486,7 +552,7 @@ window.BobaService=(()=>{
     dialog.addEventListener('click',e=>{
       const b=e.target.closest('[data-service]');if(!b||b.disabled)return;
       const id=b.dataset.service;
-      if(id==='pause')pause();else if(id==='close'){app.save();dialog.close();}
+      if(id==='begin')begin();else if(id==='pause')pause();else if(id==='close'){room.releaseLook();app.save();dialog.close();}
       else if(id==='crew'||id==='crewclose')toggleCrew(id==='crew');
       else if(id==='hire')purchase(b.dataset.id);
       else if(id==='duty')duty(b.dataset.id);
@@ -500,10 +566,16 @@ window.BobaService=(()=>{
     window.addEventListener('keydown',e=>{
       if(!dialog.open||e.repeat||e.altKey||e.ctrlKey||e.metaKey||e.target.closest('input,textarea,[contenteditable=true]'))return;
       if(e.code==='KeyE'){e.preventDefault();interact();}else if(e.code==='KeyP'){e.preventDefault();pause();}
+      else if(e.code==='KeyC'){e.preventDefault();toggleCrew(!crewOpen);}
+      else if(active()&&(e.code==='KeyQ'||/^Digit[1-3]$/.test(e.code))){
+        e.preventDefault();const openTickets=tickets();if(!openTickets.length)return;
+        const index=e.code==='KeyQ'?(openTickets.findIndex(o=>o.id===state.selected)+1)%openTickets.length:Number(e.code.slice(-1))-1;
+        if(openTickets[index]){state.selected=openTickets[index].id;app.save();render();}
+      }
     });
-    dialog.addEventListener('cancel',e=>{e.preventDefault();if(crewOpen)toggleCrew(false);else pause();});
-    dialog.addEventListener('close',()=>{cancelAnimationFrame(frameId);room.clear();app.save();app.exit();});
-    document.addEventListener('visibilitychange',()=>{if(dialog.open){room.clear();last=performance.now();if(document.hidden)app.save();}});
+    dialog.addEventListener('cancel',e=>{e.preventDefault();if(crewOpen)toggleCrew(false);else if(active())pause();});
+    dialog.addEventListener('close',()=>{cancelAnimationFrame(frameId);room.releaseLook();room.clear();app.save();app.exit();});
+    document.addEventListener('visibilitychange',()=>{if(dialog.open){room.clear();last=performance.now();if(document.hidden){if(!briefing&&!crewOpen&&!state.shift.complete&&!state.paused)pause();else app.save();}}});
     window.addEventListener('pagehide',()=>{if(dialog.open)app.save();});
   }
   return {init,open,valid,resetForRebirth};

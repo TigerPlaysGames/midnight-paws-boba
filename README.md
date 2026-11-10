@@ -6,13 +6,13 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=8). Start behind the counter in the original café’s first-person 3D style. One cat arrives first. Walk to the register and ask for their order. The next cats line up in arrival order while guests with written tickets wait at their pickup spots.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=9). Read the round goal and start when you are ready. Take the first cat’s ticket at the register. You can take the next cat’s order while the first waits at the pickup counter. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
 
-Grab a cup, wait at the brewer, add the requested topping, press the lid and deliver the drink. Prepare any snacks or desserts on the ticket, carry each item separately, then clean the pickup spot for the next guest. Serve three complete orders to finish the first shift. Later shifts have larger quotas. **Pause** freezes guests, machines and staff.
+Grab a cup and follow the ticket to its brewer. Add the requested topping, seal the lid, then bring the drink and any food to the same pickup counter. The first goal is three complete orders. Earn a star for meeting the goal, another if nobody walks out, and a third if you greet and serve every guest promptly. Review your earnings or hire staff before starting the next round. **Pause** freezes guests, machines and staff.
 
 Use the **Crew** board to spend tips on an order taker, cleaner, barista, cook or server. Each worker handles that job during service. You can train workers and fill the other roles yourself.
 
-Use **WASD** to walk, drag or press the left and right arrows to turn, and press **E** to interact within reach. On touchscreens, move with the stick, drag the room to look, and use the nearby action button. Select a ticket to track its guest. Park a cup on the shelf to free your hand.
+Use **WASD** to walk, move the mouse to look, and press **E** to interact. **Shift** sprints, **1–3** select tickets, and **Esc** frees the cursor for menus. The arrow keys also turn the camera. On touchscreens, move with the stick, drag to look, and use the action and sprint buttons. Sprinting with an open drink carries a small spill risk. Sealed cups travel safely. Park a cup on the shelf to free your hand.
 
 Your shift, crew and training save automatically along with your tips, XP, unlocks, tickets and unfinished drinks. Open the game again on the same browser and device to continue. For a different device, use **Menu → Save backups → Download save**, then **Restore from file** on the other device. Clearing site data or ending a private browsing session can erase that browser’s progress.
 
