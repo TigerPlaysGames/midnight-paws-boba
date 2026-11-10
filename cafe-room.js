@@ -34,6 +34,10 @@ window.BobaRoom = (() => {
     return (job.caption?job.caption+' ':job.jobId?'#'+job.jobId+' ':'')+(job.ready?'Ready':clock.left.toFixed(1)+'s');
   }
   function counterTask(id,state){
+    if (id==='line') {
+      const guest=state?.orders?.find(order=>!order.taken);
+      if (guest?.orderLeft > 0) return {caption:'Order',left:guest.orderLeft};
+    }
     const task=state?.staff?.[id==='line'?'cashier':'server']?.task;
     const caption=task&&{take:'Order',serveCup:'Serve'}[task.kind];
     return caption?{caption,left:task.left}:null;
@@ -757,5 +761,5 @@ window.BobaRoom = (() => {
     }
     return {frame,paint,pulse,clear,resize,captureLook,releaseLook,turn(amount){const p=config.state().pose;p.yaw=wrap(p.yaw+amount);}};
   }
-  return {stations,spot,nearest,direction,spawn,bounded,create};
+  return {stations,spot,nearest,direction,spawn,bounded,create,reach};
 })();

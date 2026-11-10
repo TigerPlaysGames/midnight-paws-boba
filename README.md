@@ -6,7 +6,7 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=11). Read the round goal and start when you are ready. Take the first cat’s ticket at the register and grab a cup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=12). Read the round goal and start when you are ready. Stay at the register for two seconds to write the first cat’s ticket, then grab a cup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
 
 Press **E** at the tea machine and choose the base by number or click. For a Brown Sugar Milk Tea, brew Brown Sugar Tea and take it to the milk dispenser. For a Jasmine Tea, brew Jasmine Tea and skip the milk. The ticket tells you whether to add ice and which topping to use. Foam, coconut jelly and boba pearls are available from the start.
 

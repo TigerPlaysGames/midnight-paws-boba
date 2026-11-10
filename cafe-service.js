@@ -2,6 +2,7 @@
 window.BobaService=(()=>{
   'use strict';
   const roomApi=window.BobaRoom, pourTime=3.5,lidTime=1.3,topTime=.75,ovenTime=2.8,cleanTime=1.7,arrivalTime=3;
+  const orderTime = 2;
   const desserts={bao:'Steamed veggie bao',toast:'Sesame toast',onigiri:'Grilled onigiri',mochi:'Strawberry mochi',taiyaki:'Custard taiyaki',roll:'Matcha roll'};
   const roles={
     cashier:{name:'Miso',title:'Order taker',description:'Writes the front guest’s ticket.',coat:'orange',cost:12,kinds:['take']},
@@ -37,6 +38,10 @@ window.BobaService=(()=>{
   const fresh=()=>({version:5,paused:false,serial:0,arrival:3,selected:null,orders:[],pose:roomApi.spawn(),hand:null,job:null,
     shift:newShift(1),staff:newStaff(),career:{shifts:0,served:0,missed:0,cleaned:0}});
   const line=()=>orders().filter(o=>!o.taken);
+  function writingTicket() {
+    const guest = orders().find(order => !order.taken);
+    return guest?.orderLeft > 0 ? guest : null;
+  }
   const tickets=()=>orders().filter(o=>o.taken);
   const seated=n=>orders().find(o=>o.taken&&o.seat===n);
   const freeSeat=()=>[0,1,2].find(n=>!seated(n))??-1;
@@ -60,6 +65,7 @@ window.BobaService=(()=>{
         (o.dessert!==null&&!Object.hasOwn(desserts,o.dessert))||!within(o.limit,120)||o.limit<1||!within(o.left,o.limit)||
         !(s.version===1?['none','waiting','baking','done']:['none','waiting','baking','done','given']).includes(o.side)||!within(o.bake,ovenTime))return false;
       const c=o.cup;
+      if (o.orderLeft !== undefined && !within(o.orderLeft, orderTime)) return false;
       if(!c||!stages.includes(c.stage)||(c.flavor!==null&&!drink(c.flavor))||(c.top!==null&&!app.tops.includes(c.top))||
         !within(c.left,pourTime)||(c.stage!=='empty'&&!c.flavor))return false;
       if(s.version>=2){
@@ -227,6 +233,7 @@ window.BobaService=(()=>{
   function take(o,track){
     const seat=freeSeat();
     if(!o||o!==line()[0]||seat<0)return false;
+    delete o.orderLeft;
     o.greetingQuality=o.left/o.limit;o.limit=serviceLimit(o);o.left=o.limit;o.taken=true;o.seat=seat;
     if(!state.shift.greeted)state.shift.greeted=true;
     if(track||!tracked())state.selected=o.id;
@@ -281,7 +288,7 @@ window.BobaService=(()=>{
   function nextTask(role,w){
     const guests=tickets();
     const make=(kind,id,seat,seconds)=>({kind,id,seat,left:seconds/(1+.35*(w.level-1))});
-    if(role==='cashier'){const g=line()[0];return g&&freeSeat()>=0?make('take',g.id,null,2.4):null;}
+    if(role==='cashier'){const g=line()[0];return g&&!writingTicket()&&freeSeat()>=0?make('take',g.id,null,2.4):null;}
     if(role==='server'){
       const g=guests.find(o=>o.cup.stage==='ready'&&mixed(o)&&(o.cupAt==='shelf'||o.cupAt==='shake'&&o.cup.auto));
       return g?make('serveCup',g.id,g.seat,2.1):null;
@@ -347,11 +354,28 @@ window.BobaService=(()=>{
   }
   function advance(dt){
     let changed=false;
+    const writing = writingTicket();
+    if (writing && roomApi.direction(state.pose,'line').distance > roomApi.reach) {
+      delete writing.orderLeft;
+      say('You stepped away. Ask '+writing.name+' again at the register.');
+      changed = true;
+    }
     for(const o of [...orders()]){
+      // A guest who is already talking to the player or cashier has been greeted.
+      if (!o.taken && ((o === writing && o.orderLeft > 0) || assigned('cashier',o.id,'take'))) continue;
       const was=mood(o);
       o.left=Math.max(0,o.left-dt*(o.taken||o===line()[0]?1:.65));
       if(!o.left){remove(o.id);state.shift.missed++;state.career.missed++;app.state.combo=0;say(o.name+' left '+(o.taken?'without their order.':'before ordering.'));changed=true;}
       else if(was!==mood(o))changed=true;
+    }
+    if (writing?.orderLeft > 0) {
+      writing.orderLeft = Math.max(0, writing.orderLeft - dt);
+      if (writing.orderLeft === 0) {
+        take(writing,true);
+        pulse('line','Ticket written');
+        say(writing.name+'’s ticket is on the rail.');
+        changed = true;
+      }
     }
     if(advanceMachines(dt))changed=true;
     if(workCrew(dt))changed=true;
@@ -373,6 +397,8 @@ window.BobaService=(()=>{
   function quest(){
     if(briefing)return [null,'Prepare for round '+state.shift.number];
     if(state.shift.complete)return [null,'Round complete'];
+    const writing = writingTicket();
+    if (writing) return ['line','Taking '+writing.name+'’s order'];
     const h=held(),o=h||tracked();
     if(h){
       const next=nextStation(h);
@@ -388,6 +414,7 @@ window.BobaService=(()=>{
     const other=atRack();if(other)return ['rack','Pick up a cup for '+other.name];
     if(o&&running(o))return [counterFor(o.cupAt),machineNames[o.cupAt]+' is working for '+o.name];
     if(o)return ['pickup','Your crew is helping '+o.name];
+    if(guest&&assigned('cashier',guest.id,'take'))return ['line','Miso is taking '+guest.name+'’s order'];
     return [null,guest?'Finish a ticket to take another order':'The next guest is on the way'];
   }
   function stationName(id){
@@ -395,9 +422,9 @@ window.BobaService=(()=>{
   }
   const exists=id=>id==='line'?!!line().length:id==='pickup'?tickets().length>0:true;
   function action(at){
-    if(!at||chooser)return '';
+    if(!at||chooser||writingTicket())return '';
     const h=held();
-    if(at==='line'){const head=line()[0];return head&&freeSeat()>=0?'Ask '+head.name:'';}
+    if(at==='line'){const head=line()[0];return head&&freeSeat()>=0&&!assigned('cashier',head.id,'take')?'Ask '+head.name:'';}
     if(at==='rack'){
       if(h)return 'Park cup';
       const g=atRack();return g?(g.cupAt==='shelf'?'Pick up '+g.name+'’s cup':'Get cup for '+g.name):'';
@@ -473,7 +500,9 @@ window.BobaService=(()=>{
     const at=roomApi.nearest(state.pose,exists);if(!action(at))return;
     const h=held();
     if(at==='line'){
-      const front=line()[0];if(take(front,true)){pulse(at,'Ticket written');say(front.name+'’s ticket is on the rail.');}
+      line()[0].orderLeft = orderTime;
+      room.pulse(at);
+      noticeUntil = 0;
     }else if(at==='pickup'){
       state.hand=null;give(h);pulse(at,'Drink served');
     }else if(at==='rack'){
@@ -583,8 +612,12 @@ window.BobaService=(()=>{
       const label=row.querySelector('small');if(label.textContent!==text)label.textContent=text;
       row.querySelector('meter').value=isRunning&&c.duration?1-c.left/c.duration:1;
     }
-    const beat=by('.bw-action-pulse');beat.hidden=!contact;
-    if(contact){const text=contact.label+' · '+Math.max(0,.45-contact.age).toFixed(1)+'s';if(beat.textContent!==text)beat.textContent=text;beat.style.setProperty('--pulse',String(Math.min(1,contact.age/.45)));}
+    const beat=by('.bw-action-pulse'),writing=writingTicket();beat.hidden=!contact&&!writing;
+    if (writing) {
+      const countdown='Writing ticket · '+writing.orderLeft.toFixed(1)+'s';
+      if (beat.textContent!==countdown) beat.textContent=countdown;
+      beat.style.setProperty('--pulse',String(1-writing.orderLeft/orderTime));
+    } else if(contact){const text=contact.label+' · '+Math.max(0,.45-contact.age).toFixed(1)+'s';if(beat.textContent!==text)beat.textContent=text;beat.style.setProperty('--pulse',String(Math.min(1,contact.age/.45)));}
     const working=Object.entries(state.staff).find(([,w])=>w.task);
     const staff=working?roles[working[0]].name+' · '+taskText(working[1].task)+' · '+working[1].task.left.toFixed(1)+'s':'';
     if(by('.bw-on-floor').textContent!==staff)by('.bw-on-floor').textContent=staff;
@@ -640,12 +673,12 @@ window.BobaService=(()=>{
     const at=roomApi.nearest(state.pose,exists),[to,title]=quest(),dir=roomApi.direction(state.pose,to),cmd=action(at);
     let location='';
     if(dir)location=Math.abs(dir.angle)>.48?(Math.abs(dir.angle)>2.45?'Turn around':dir.angle>0?'Turn right':'Turn left'):
-      dir.distance>1.62?'Walk forward':'Within reach';
+      dir.distance>roomApi.reach?'Walk forward':'Within reach';
     const status=performance.now()<noticeUntil?notice:machineHint(at);
     const key=[at,to,title,cmd,location,dir?.distance.toFixed(1),status,state.paused].join('|');
     if(readout!==key){
       readout=key;const button=by('.bw-use');
-      button.textContent=cmd||'Interact';button.disabled=!cmd||state.paused;
+      button.textContent=cmd||(writingTicket()?'Listening…':'Interact');button.disabled=!cmd||state.paused;
       button.dataset.near=at||'';by('.bw-step').textContent=title;
       by('.bw-way').textContent=dir?location+' · '+dir.distance.toFixed(1)+' m':'';
       by('.bs-msg').textContent=status;

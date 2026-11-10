@@ -13,10 +13,10 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=11">
-<link rel="stylesheet" href="original-room.css?v=11">
-<script src="cafe-room.js?v=11"></script>
-<script src="cafe-service.js?v=11"></script>
+<link rel="stylesheet" href="cafe-service.css?v=12">
+<link rel="stylesheet" href="original-room.css?v=12">
+<script src="cafe-room.js?v=12"></script>
+<script src="cafe-service.js?v=12"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -868,7 +868,7 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
       <p class="bw-round-goal"></p>
       <p class="bw-round-saved" hidden></p>
       <ol class="bw-round-route" aria-label="Service route">
-        <li><b>Register</b><span>Ask the next cat in line.</span></li>
+        <li><b>Register</b><span>Ask the next cat and stay nearby for two seconds while you write the ticket.</span></li>
         <li><b>Tea bar</b><span><span class="bw-round-desktop">Press <kbd>E</kbd> for a cup, then <kbd>E</kbd> to brew.</span><span class="bw-round-touch">Take a cup, then tap the brewer.</span> Add milk, ice and toppings as ordered.</span></li>
         <li><b>Pickup</b><span>Seal the cup, run it through the shaker, then serve.</span></li>
       </ol>
@@ -4118,7 +4118,7 @@ function loopShop(now){
 
 /* ================= v10: guidebook ================= */
 const GUIDE=[
- ['Café rounds','<p class="gp">Use <b>WASD</b> to move, the mouse to look and <b>E</b> to work. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Ask for an order, grab a cup and choose its base at the tea brewer by number or tap. Take another order while it pours.</li><li><b>Brown Sugar Milk Tea</b> starts with Brown Sugar Tea and needs a separate pour of milk. For <b>Jasmine Tea</b>, brew the Jasmine Tea base and skip the milk. Follow the ticket for ice and toppings.</li><li>Add the requested topping, such as foam or coconut jelly. Seal the drink at the lid press, move it to the shaker, then deliver it at pickup.</li><li>Collect each cup with an empty hand when its timer says <b>Ready</b>. Serve three cats to finish round one.</li></ol>'],
+ ['Café rounds','<p class="gp">Use <b>WASD</b> to move, the mouse to look and <b>E</b> to work. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Ask for an order and stay at the register for two seconds while you write. Grab a cup and choose its base at the tea brewer by number or tap. Take another order while it pours.</li><li><b>Brown Sugar Milk Tea</b> starts with Brown Sugar Tea and needs a separate pour of milk. For <b>Jasmine Tea</b>, brew the Jasmine Tea base and skip the milk. Follow the ticket for ice and toppings.</li><li>Add the requested topping, such as foam or coconut jelly. Seal the drink at the lid press, move it to the shaker, then deliver it at pickup.</li><li>Collect each cup with an empty hand when its timer says <b>Ready</b>. Serve three cats to finish round one.</li></ol>'],
  ['Café workers','<p class="gp">Miso writes tickets. Nori brews tea, seals cups and runs the shaker. Peach adds milk and ice, Bao handles toppings and Yuzu delivers finished drinks.</p><p class="gp">Open <b>Crew</b> to hire or train a worker. You can do any of these jobs yourself.</p>'],
  ['Explore controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
   <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
