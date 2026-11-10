@@ -13,10 +13,10 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=10">
-<link rel="stylesheet" href="original-room.css?v=10">
-<script src="cafe-room.js?v=10"></script>
-<script src="cafe-service.js?v=10"></script>
+<link rel="stylesheet" href="cafe-service.css?v=11">
+<link rel="stylesheet" href="original-room.css?v=11">
+<script src="cafe-room.js?v=11"></script>
+<script src="cafe-service.js?v=11"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -869,8 +869,8 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
       <p class="bw-round-saved" hidden></p>
       <ol class="bw-round-route" aria-label="Service route">
         <li><b>Register</b><span>Ask the next cat in line.</span></li>
-        <li><b>Tea bar</b><span><span class="bw-round-desktop">Press <kbd>E</kbd> at Cups, then <kbd>E</kbd> at Tea.</span><span class="bw-round-touch">Use the action button at Cups, then at Tea.</span> Choose a number or tap a tea.</span></li>
-        <li><b>Pickup</b><span>Scoop the requested topping, seal the lid, then serve the drink.</span></li>
+        <li><b>Tea bar</b><span><span class="bw-round-desktop">Press <kbd>E</kbd> for a cup, then <kbd>E</kbd> to brew.</span><span class="bw-round-touch">Take a cup, then tap the brewer.</span> Add milk, ice and toppings as ordered.</span></li>
+        <li><b>Pickup</b><span>Seal the cup, run it through the shaker, then serve.</span></li>
       </ol>
       <p class="bw-round-tip">Watch the machine timers. Finished cups wait for you.</p>
       <div class="bw-round-actions">
@@ -986,12 +986,12 @@ const ING={
   cocoa:{name:'Cocoa powder',kind:'powder',c:'#6a4030',short:'COCOA'},
   pearls:{name:'Boba pearls',kind:'top',c:'#3b2216',bowl:'#5a3320',cost:0,short:'BOBA'},
   minitap:{name:'Mini tapioca',kind:'top',c:'#efe2c6',bowl:'#d8c39b',cost:15,short:'MINI'},
-  nata:{name:'Nata de coco',kind:'top',c:'#f2f7f4',bowl:'#dfeee9',cost:30,short:'NATA'},
+  nata:{name:'Coconut Jelly',kind:'top',c:'#f2f7f4',bowl:'#dfeee9',cost:0,short:'COCONUT JELLY'},
   pudding:{name:'Egg pudding',kind:'top',c:'#f3d27a',bowl:'#f0c766',cost:45,short:'PUDDING'},
   lychee:{name:'Lychee jelly',kind:'top',c:'#f6c3d2',bowl:'#f2b7c8',cost:60,short:'LYCHEE'},
   redbean:{name:'Red bean',kind:'top',c:'#7a2e2e',bowl:'#8c3a36',cost:75,short:'RED BEAN'},
   popping:{name:'Popping boba',kind:'top',c:'#ff8fa3',bowl:'#ffb3c0',cost:90,short:'POPPING'},
-  foam:{name:'Cheese foam',kind:'top',c:'#fbf3e0',bowl:'#fbf3e0',cost:110,short:'CHEESE FOAM'},
+  foam:{name:'Foam',kind:'top',c:'#fbf3e0',bowl:'#fbf3e0',cost:0,short:'FOAM'},
   aloe:{name:'Aloe vera',kind:'top',c:'#d9f2c4',bowl:'#cfeab8',cost:130,short:'ALOE'},
   grassjelly:{name:'Grass jelly',kind:'top',c:'#2f2a22',bowl:'#3a342b',cost:150,short:'GRASS JELLY'},
   crystal:{name:'Crystal boba',kind:'top',c:'#eef6f6',bowl:'#dfeff0',cost:170,short:'CRYSTAL'},
@@ -1002,7 +1002,8 @@ const ING={
 const DRINKS=[
   {id:'classic',name:'Classic Milk Tea',ings:['black','milk'],price:5,cost:0},
   {id:'jasminemt',name:'Jasmine Milk Tea',ings:['jasmine','milk'],price:5,cost:0},
-  {id:'bsmilk',name:'Brown Sugar Milk',ings:['brownsugar','milk'],price:6,cost:0},
+  {id:'bsmilk',name:'Brown Sugar Milk Tea',ings:['black','brownsugar','milk'],price:6,cost:0},
+  {id:'jasminetea',name:'Jasmine Tea',ings:['jasmine'],price:4,cost:0},
   {id:'greentea',name:'Green Tea',ings:['green'],price:4,cost:15},
   {id:'thaitea',name:'Thai Tea',ings:['thai','milk'],price:6,cost:25},
   {id:'wmlatte',name:'Wintermelon Latte',ings:['wintermelon','milk'],price:6,cost:30},
@@ -1050,7 +1051,8 @@ const HELLO=['Hi hi!','Mrrp, hello!','Evening~','Meow!','Hiya, night owl!','*str
 
 /* ---------- Save ---------- */
 const KEY='midnight-paws-boba-v1';
-let S={money:0,unlocked:['classic','jasminemt','bsmilk','pearls'],served:0,perfect:0,combo:0,best:0,xp:0,level:1,met:[],goals:[],fresh:[],freshIng:[],lastDay:'',dayStreak:0,earned:0,creations:[],bestCatch:0,audio:{all:true,music:true,rain:true,sfx:true}};
+const STARTER_MENU=['classic','jasminemt','bsmilk','jasminetea','pearls','foam','nata'];
+let S={money:0,unlocked:[...STARTER_MENU],served:0,perfect:0,combo:0,best:0,xp:0,level:1,met:[],goals:[],fresh:[],freshIng:[],lastDay:'',dayStreak:0,earned:0,creations:[],bestCatch:0,audio:{all:true,music:true,rain:true,sfx:true}};
 let checkpointShift;
 let lastSave=null, unreadableSave=false;
 function warnSave(message){
@@ -1064,6 +1066,7 @@ try{
     const stored=JSON.parse(lastSave);
     if(!stored || !Array.isArray(stored.unlocked))throw new Error('Invalid save');
     Object.assign(S,stored);
+    S.unlocked=[...new Set([...S.unlocked,...STARTER_MENU])];
   }
 }catch(error){
   unreadableSave=true;
@@ -3553,7 +3556,7 @@ function cupMesh3(cup){
   const base=new T.Mesh(new T.CylinderGeometry(r0,r0,.006,28),m3('#ffffff',{transparent:true,opacity:.35,roughness:.05}));base.position.y=.003;g.add(base);
   const rim=new T.Mesh(new T.TorusGeometry(r1,.0035,6,32),m3('#ffffff',{roughness:.2}));rim.rotation.x=Math.PI/2;rim.position.y=H;g.add(rim);
   const shine=new T.Mesh(new T.PlaneGeometry(.012,H*.78),new T.MeshBasicMaterial({color:'#ffffff',transparent:true,opacity:.32,depthWrite:false}));shine.position.set(-.05,H*.5,.055);shine.rotation.y=-.7;g.add(shine);
-  const lh=Math.max(0,lvl*(H-.012)),y0=.006;
+  const lh=Math.max(0,Math.min(lvl*(H-.012),cup.topping==='foam'?H-.068:H)),y0=.006;
   const seg=(a,b,col,op)=>{if(b-a<.002)return null;const m=new T.Mesh(new T.CylinderGeometry(rAt(b)-.005,rAt(a)-.005,b-a,26),m3(col,{roughness:.22,transparent:op<1,opacity:op}));m.position.y=(a+b)/2;g.add(m);return m;};
   if(lh>.004){
     if(cup.shaken){const col=blend(liq,cup),milky=amt(cup,'milk')>0;
@@ -3571,8 +3574,8 @@ function cupMesh3(cup){
     const d=new T.Mesh(new T.SphereGeometry(rAt(fy+.04)-.006,20,8,0,Math.PI*2,0,Math.PI/2),m3('#fffaf0',{roughness:.95}));d.scale.y=.25;d.position.y=fy+.04;g.add(d);}
   if(amt(cup,'ice')){const top=Math.max(y0+lh,.09);const im=new T.InstancedMesh(new T.BoxGeometry(.036,.034,.036),m3('#eaf7ff',{transparent:true,opacity:.62,roughness:.03}),6),o=new T.Object3D();
     for(let i=0;i<6;i++){const a=i*1.05;o.position.set(Math.cos(a)*.032,top-.03-(i%2)*.025,Math.sin(a)*.032);o.rotation.set(i,i*2,i*.5);o.updateMatrix();im.setMatrixAt(i,o.matrix);}im.instanceMatrix.needsUpdate=true;g.add(im);}
-  if(cup.shaken){const film=new T.Mesh(new T.CircleGeometry(r1+.002,32),new T.MeshStandardMaterial({map:filmTex(),roughness:.35,transparent:true,opacity:.95}));film.rotation.x=-Math.PI/2;film.position.y=H+.002;g.add(film);
-    const st=new T.Mesh(new T.CylinderGeometry(.011,.011,.34,12),new T.MeshStandardMaterial({map:strawTex('#9de6c6'),roughness:.4}));st.position.set(.022,H+.05,-.005);st.rotation.z=-.2;g.add(st);}
+  if(cup.sealed||cup.shaken){const film=new T.Mesh(new T.CircleGeometry(r1+.002,32),new T.MeshStandardMaterial({map:filmTex(),roughness:.35,transparent:true,opacity:.95}));film.rotation.x=-Math.PI/2;film.position.y=H+.002;g.add(film);}
+  if(cup.shaken){const st=new T.Mesh(new T.CylinderGeometry(.011,.011,.34,12),new T.MeshStandardMaterial({map:strawTex('#9de6c6'),roughness:.4}));st.position.set(.022,H+.05,-.005);st.rotation.z=-.2;g.add(st);}
   return g;
 }
 
@@ -4115,8 +4118,8 @@ function loopShop(now){
 
 /* ================= v10: guidebook ================= */
 const GUIDE=[
- ['Café rounds','<p class="gp">Press <b>Start round</b> when you are ready. Use <b>WASD</b> to move, the mouse to look and <b>E</b> to use the station in front of you. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Take a cat’s order at the register. Press <b>E</b> at the cup shelf, then <b>E</b> at the tea machine. Press the number next to a tea or click its name.</li><li>The machine keeps your cup while it fills. Take another ticket or start a second cup. Come back with an empty hand when the timer says <b>Ready</b>.</li><li>Add the requested boba, then put the cup in the lid press. Collect it when sealed and carry it to the pickup counter. Clear used trays there.</li><li>Serve three cats to finish round one. Quick greetings and deliveries earn bigger tips. Hold <b>Shift</b> to sprint. An open drink can spill.</li></ol>'],
- ['Café workers','<p class="gp">Spend tips on the job where you want help. The cashier writes tickets, the barista brews tea and seals cups, the toppings specialist adds boba, the server delivers drinks, and the cleaner clears pickup trays.</p><p class="gp">You can handle any unstaffed job yourself. Your hires and training carry over to later rounds.</p>'],
+ ['Café rounds','<p class="gp">Use <b>WASD</b> to move, the mouse to look and <b>E</b> to work. On a phone, use the stick, drag to look and tap the action button.</p><ol class="gsteps"><li>Ask for an order, grab a cup and choose its base at the tea brewer by number or tap. Take another order while it pours.</li><li><b>Brown Sugar Milk Tea</b> starts with Brown Sugar Tea and needs a separate pour of milk. For <b>Jasmine Tea</b>, brew the Jasmine Tea base and skip the milk. Follow the ticket for ice and toppings.</li><li>Add the requested topping, such as foam or coconut jelly. Seal the drink at the lid press, move it to the shaker, then deliver it at pickup.</li><li>Collect each cup with an empty hand when its timer says <b>Ready</b>. Serve three cats to finish round one.</li></ol>'],
+ ['Café workers','<p class="gp">Miso writes tickets. Nori brews tea, seals cups and runs the shaker. Peach adds milk and ice, Bao handles toppings and Yuzu delivers finished drinks.</p><p class="gp">Open <b>Crew</b> to hire or train a worker. You can do any of these jobs yourself.</p>'],
  ['Explore controls',`<table class="gtab"><tr><td><kbd>W A S D</kbd> or arrows</td><td>Walk</td></tr><tr><td>Drag the mouse</td><td>Look around</td></tr><tr><td><kbd>E</kbd></td><td>Use the station you’re standing at</td></tr>
   <tr><td>Hold <kbd>E</kbd> or <kbd>1</kbd>–<kbd>9</kbd></td><td>Pour or scoop</td></tr><tr><td><kbd>Space</kbd></td><td>Shake, then serve</td></tr><tr><td><kbd>N</kbd></td><td>Read the current ticket</td></tr><tr><td>Scroll</td><td>Zoom</td></tr><tr><td><kbd>Esc</kbd></td><td>Close a window</td></tr></table>`],
  ['Shops',`<p class="gp">Press <span class="gk">Shop</span> and pick a store. You’ll arrive on the sidewalk, so walk in through the door.</p>
@@ -5275,7 +5278,7 @@ function buildLab(){
     x.fillStyle='#2b2433';x.font='800 30px "M PLUS Rounded 1c",system-ui,sans-serif';x.textAlign='center';x.fillText('Periodic Table of Boba',320,44);
     const el=[['Bt','Black tea','#c98a5a'],['Jm','Jasmine','#e3d98a'],['Gt','Green tea','#9fcf7a'],['Ol','Oolong','#d9a85e'],['Th','Thai tea','#f2a25a'],['Mk','Milk','#f4ede0'],
       ['Bs','Brown sugar','#a8673a'],['Wm','Wintermelon','#d8e6a8'],['Hn','Honey','#f5c84b'],['Mg','Mango','#f5b04b'],['Mt','Matcha','#79ab55'],['Tr','Taro','#b69ad8'],
-      ['Ub','Ube','#8f6fc8'],['Cc','Cocoa','#7a4e30'],['Pr','Pearls','#3b2216'],['Nc','Nata','#f1f1e6'],['Pd','Pudding','#f5d36a'],['Cf','Cheese foam','#fff8e8']];
+      ['Ub','Ube','#8f6fc8'],['Cc','Cocoa','#7a4e30'],['Pr','Pearls','#3b2216'],['Cj','Coconut jelly','#f1f1e6'],['Pd','Pudding','#f5d36a'],['Fm','Foam','#fff8e8']];
     el.forEach(([s,n,col],i)=>{const cx=40+(i%6)*95,cy=70+Math.floor(i/6)*100;x.fillStyle=col;x.fillRect(cx,cy,86,88);x.strokeStyle='#2b2433';x.lineWidth=3;x.strokeRect(cx,cy,86,88);
       x.fillStyle='#2b2433';x.font='800 34px "M PLUS Rounded 1c",system-ui,sans-serif';x.fillText(s,cx+43,cy+50);x.font='700 12px "M PLUS Rounded 1c",system-ui,sans-serif';x.fillText(n,cx+43,cy+76);x.font='700 11px sans-serif';x.textAlign='left';x.fillText(String(i+1),cx+5,cy+14);x.textAlign='center';});
     add(new T.PlaneGeometry(2.8,1.66),new T.MeshStandardMaterial({map:new T.CanvasTexture(c),roughness:.85}),-2.4,2.35,-5.48);}
@@ -5400,7 +5403,7 @@ function openRebirth(){const n=S.rebirths||0;
    <div class="rbbonus">✦ Rebirth ${n+1}: <b>+${(n+1)*25}% tips</b> on perfect drinks, forever</div>`;
   $('#rbGo').hidden=S.level<REBIRTH_LV;$('#rebirth').hidden=false;}
 function doRebirth(){window.BobaService?.resetForRebirth();
-  S.rebirths=(S.rebirths||0)+1;S.money=0;S.level=1;S.xp=0;S.combo=0;S.unlocked=['classic','jasminemt','bsmilk','pearls'];S.fresh=[];S.freshIng=[];save();
+  S.rebirths=(S.rebirths||0)+1;S.money=0;S.level=1;S.xp=0;S.combo=0;S.unlocked=[...STARTER_MENU];S.fresh=[];S.freshIng=[];save();
   $('#rebirth').hidden=true;sfx('rare');confetti(90);banner(`REBIRTH ✦ ${S.rebirths}`,`+${S.rebirths*25}% tips on perfect drinks forever`,'lvl');
   try{renderHUD();renderMenus();renderBar();}catch(e){}renderMenuScreen();}
 $('#rebirthBtn').onclick=()=>{initAudio();applyAudio();sfx('click');openRebirth();};
@@ -5771,6 +5774,21 @@ window.MidnightMarket?.init({
   exit(){setMoney(S.money);renderHUD();renderMenuScreen();}
 });
 /* ---------- Boot ---------- */
+const baseNames={
+  black:'Black Tea',jasmine:'Jasmine Tea',brownsugar:'Brown Sugar Tea',green:'Green Tea',thai:'Thai Tea',
+  wintermelon:'Wintermelon', 'honey-green':'Honey Green Tea',oolong:'Oolong Tea','mango-green':'Mango Green Tea',
+  matcha:'Matcha',strawberry:'Strawberry','taro-black':'Taro Black Tea','passion-jasmine':'Passion Fruit Jasmine',
+  ube:'Ube','brownsugar-matcha':'Brown Sugar Matcha',cocoa:'Cocoa','honey-oolong':'Honey Oolong',
+  'strawberry-matcha':'Strawberry Matcha','mango-thai':'Mango Thai Tea','wintermelon-oolong':'Wintermelon Oolong',
+  'ube-taro':'Ube Taro','passion-mango-green':'Tropical Passion'
+};
+const cafeDrinks=DRINKS.map(recipe=>{
+  const baseIngredients=recipe.ings.filter(id=>id!=='milk');
+  const base=recipe.id==='bsmilk'?'brownsugar':baseIngredients.join('-');
+  const amounts=Object.fromEntries(baseIngredients.map(id=>[id,1]));
+  const baseColor='#'+blend(baseIngredients,{amt:amounts}).map(n=>Math.round(n).toString(16).padStart(2,'0')).join('');
+  return {...recipe,base,baseName:baseNames[base],baseColor,baseIngredients};
+});
 // The walk-in service uses the original café's model factories and the player's décor.
 window.BobaOriginalArt={
   cat(id,apron){const coat=COATS.find(c=>c.id===id)||COATS[0];return buildCat3(coatOpts(coat,'none',apron));},
@@ -5781,8 +5799,11 @@ window.BobaOriginalArt={
   furnishings(){return (S.cafe3d||defaultCafe3()).items;},
   player(){return {fur:(COATS.find(c=>c.id===S.me?.coat)||COATS[0]).fur,apron:S.me?.apron||'#9de6c6'};},
   cup(serving){
-    const recipe=DRINKS.find(d=>d.id===serving?.flavor),order=recipe?recipe.ings.slice():[];
-    return cupMesh3({order,amt:Object.fromEntries(order.map(id=>[id,1])),topping:serving?.top||null,shaken:serving?.stage==='ready'});
+    const recipe=cafeDrinks.find(d=>d.base===serving?.base),order=recipe?[...recipe.baseIngredients]:[];
+    if(serving?.milk)order.push('milk');
+    if(serving?.ice)order.push('ice');
+    const sealed=['sealed','shaking','ready'].includes(serving?.stage);
+    return cupMesh3({order,amt:Object.fromEntries(order.map(id=>[id,1])),topping:serving?.top||null,sealed,shaken:serving?.stage==='ready'});
   }
 };
 if(window.BobaService){
@@ -5791,7 +5812,7 @@ if(window.BobaService){
   $('#playBtn').textContent=S.cafeService?'My café rounds':'Play café rounds';
   $('#playBtn').onclick=window.BobaService.open;
   window.BobaService.init({
-    state:S,drinks:DRINKS,ingredients:ING,tops:TOPS,coats:COATS,names:NAMES,save,
+    state:S,drinks:cafeDrinks,ingredients:ING,tops:TOPS,coats:COATS,names:NAMES,save,
     portrait:id=>catSVG(COATS.find(c=>c.id===id),'happy','none'),
     enter(){history.replaceState(null,'','#cafe');initAudio();applyAudio();},
     reward(order){
@@ -5804,7 +5825,7 @@ if(window.BobaService){
       if(!S.met.includes(order.coat))S.met.push(order.coat);
       S.fresh=S.fresh.filter(id=>id!==order.drink&&id!==order.top);
       gainXP(rare?60:25);
-      goalEvent({perfect:true,pay,topping:!!order.top,fast:order.left>order.limit/2,drink:order.drink,noice:false,rare});
+      goalEvent({perfect:true,pay,topping:!!order.top,fast:order.left>order.limit/2,drink:order.drink,noice:order.ice===false,rare});
       setMoney(S.money);sfx('perfect',S.combo);
       return pay;
     },

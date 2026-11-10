@@ -6,13 +6,15 @@ Made by Kaylyn Hostetler (vibe coded with Claude).
 
 ## How to play it
 
-[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=10). Read the round goal and start when you are ready. Take the first cat’s ticket at the register. Follow the counter from the register past the cups, tea machine, boba and lid press to pickup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
+[Play Midnight Paws Boba](https://tigerplaysgames.github.io/midnight-paws-boba/play.html?v=11). Read the round goal and start when you are ready. Take the first cat’s ticket at the register and grab a cup. A late greeting or delivery reduces the tip. A cat who runs out of patience leaves and a replacement can take their place.
 
-Press **E** at the cup shelf, then **E** at the tea machine. Press the number beside a tea or click its name. The machine holds and fills the cup while you move on. Its two spouts let you start a second order before the first finishes. Collect a ready cup with an empty hand and add any requested boba. When you have several toppings, choose one with the same number or click controls. Leave the cup in the lid press, then collect and serve the sealed drink at pickup.
+Press **E** at the tea machine and choose the base by number or click. For a Brown Sugar Milk Tea, brew Brown Sugar Tea and take it to the milk dispenser. For a Jasmine Tea, brew Jasmine Tea and skip the milk. The ticket tells you whether to add ice and which topping to use. Foam, coconut jelly and boba pearls are available from the start.
+
+After the requested ingredients are in the cup, use the lid press and then the shaker. Collect the finished drink and serve it at pickup. Each machine holds its cup and shows a timer, so you can start another drink while it works. The pickup spot is ready for the next cat as soon as you deliver.
 
 The first goal is three drinks. Earn a star for meeting the goal, another if nobody walks out, and a third if you greet and serve every guest promptly. Review your earnings or hire staff before starting the next round. **Pause** freezes guests, machines and staff.
 
-Use the **Crew** board to spend tips on an order taker, cleaner, barista, toppings specialist or server. Bao handles toppings with any training already earned as a cook. You can train workers and fill the other roles yourself.
+Use the **Crew** board to hire an order taker, milk and ice attendant, barista, toppings specialist or server. Peach moves from cleaning to milk and ice with existing training intact.
 
 Use **WASD** to walk, move the mouse to look, and press **E** to interact. **Shift** sprints, **1–3** select tickets, and **Esc** frees the cursor for menus. The arrow keys also turn the camera. On touchscreens, move with the stick, drag to look, and use the action and sprint buttons. Sprinting with an open drink carries a small spill risk. Sealed cups travel safely. Park a cup on the shelf to free your hand.
 

@@ -5,15 +5,18 @@ window.BobaService=(()=>{
   const desserts={bao:'Steamed veggie bao',toast:'Sesame toast',onigiri:'Grilled onigiri',mochi:'Strawberry mochi',taiyaki:'Custard taiyaki',roll:'Matcha roll'};
   const roles={
     cashier:{name:'Miso',title:'Order taker',description:'Writes the front guest’s ticket.',coat:'orange',cost:12,kinds:['take']},
-    cleaner:{name:'Peach',title:'Cleaner',description:'Clears used trays at the pickup pass.',coat:'calico',cost:16,kinds:['wipe']},
-    barista:{name:'Nori',title:'Barista',description:'Loads the brewer and seals finished drinks.',coat:'black',cost:28,kinds:['brew','top','seal']},
+    cleaner:{name:'Peach',title:'Milk & ice attendant',description:'Adds the milk and ice on each ticket.',coat:'calico',cost:16,kinds:['wipe','milk','ice']},
+    barista:{name:'Nori',title:'Barista',description:'Brews bases, seals cups and runs the shaker.',coat:'black',cost:28,kinds:['brew','milk','ice','top','seal','shake']},
     cook:{name:'Bao',title:'Toppings specialist',description:'Adds requested toppings to parked and crew cups.',coat:'brown',cost:24,kinds:['cook','top']},
     server:{name:'Yuzu',title:'Server',description:'Carries finished items to the right guest.',coat:'white',cost:32,kinds:['serveCup','serveFood']}
   };
-  const stages=['empty','pouring','filled','topping','sealing','ready'];
-  const bays=['tea0','tea1'],equipment=[...bays,'top','lid'];
-  const machineNames={tea0:'Brewer A',tea1:'Brewer B',top:'Topping bowl',lid:'Lid press'};
-  const operation={tea0:'pouring',tea1:'pouring',top:'topping',lid:'sealing'};
+  const bays=['tea0','tea1'],equipment=[...bays,'milk','ice','top','lid','shake'];
+  const machineNames={tea0:'Brewer A',tea1:'Brewer B',milk:'Milk dispenser',ice:'Ice bin',top:'Topping bowl',lid:'Lid press',shake:'Shaker'};
+  const operation={tea0:'pouring',tea1:'pouring',milk:'milking',ice:'icing',top:'topping',lid:'sealing',shake:'shaking'};
+  const finishedStage={tea0:'filled',tea1:'filled',milk:'filled',ice:'filled',top:'filled',lid:'sealed',shake:'ready'};
+  const durationByStation={tea0:pourTime,tea1:pourTime,milk:1.2,ice:.8,top:topTime,lid:lidTime,shake:2};
+  const taskByStation={tea0:'brew',tea1:'brew',milk:'milk',ice:'ice',top:'top',lid:'seal',shake:'shake'};
+  const stages=['empty','filled','sealed','ready',...new Set(Object.values(operation))];
   const arrivals=new WeakSet();
   let app,dialog,room,state,frameId,last,saveDue,readout='',notice='',noticeUntil=0,crewOpen=false,briefing=false,chooser=null,contact=null;
   const by=s=>dialog.querySelector(s),pick=a=>a[Math.floor(Math.random()*a.length)];
@@ -22,7 +25,7 @@ window.BobaService=(()=>{
   const held=()=>state.hand&&order(state.hand.id);
   const active=()=>!!(dialog?.open && state && !state.paused && !briefing && !crewOpen && state.shift.started && !state.shift.complete && !document.hidden);
   const within=(n,max)=>Number.isFinite(n)&&n>=0&&n<=max;
-  const cup=()=>({stage:'empty',flavor:null,top:null,left:0,duration:0,auto:false,actor:null,dose:null});
+  const cup=()=>({stage:'empty',flavor:null,base:null,milk:false,ice:false,top:null,left:0,duration:0,auto:false,actor:null,dose:null});
   const occupant=id=>tickets().find(o=>o.cupAt===id);
   const freeBay=()=>bays.find(id=>!occupant(id));
   const running=o=>!!o&&equipment.includes(o.cupAt)&&o.cup.stage===operation[o.cupAt];
@@ -31,20 +34,25 @@ window.BobaService=(()=>{
   const count=n=>Number.isSafeInteger(n)&&n>=0;
   const newShift=n=>({number:n,quota:Math.min(8,n+2),served:0,missed:0,earned:0,timely:0,complete:false,greeted:false,started:false});
   const newStaff=()=>Object.fromEntries(Object.keys(roles).map(k=>[k,{level:0,done:0,onDuty:true,task:null}]));
-  const fresh=()=>({version:4,paused:false,serial:0,arrival:3,selected:null,orders:[],pose:roomApi.spawn(),hand:null,job:null,
-    shift:newShift(1),dirty:[false,false,false],staff:newStaff(),career:{shifts:0,served:0,missed:0,cleaned:0}});
+  const fresh=()=>({version:5,paused:false,serial:0,arrival:3,selected:null,orders:[],pose:roomApi.spawn(),hand:null,job:null,
+    shift:newShift(1),staff:newStaff(),career:{shifts:0,served:0,missed:0,cleaned:0}});
   const line=()=>orders().filter(o=>!o.taken);
   const tickets=()=>orders().filter(o=>o.taken);
   const seated=n=>orders().find(o=>o.taken&&o.seat===n);
-  const freeSeat=()=>state.dirty.findIndex((dirty,n)=>!dirty&&!seated(n));
-  const dirtyTray=()=>state.dirty.findIndex((dirty,n)=>dirty&&state.staff.cleaner.task?.seat!==n);
+  const freeSeat=()=>[0,1,2].find(n=>!seated(n))??-1;
+  const needsMilk=o=>drink(o.drink).ings.includes('milk');
+  const rightBase=o=>o.cup.base===drink(o.drink).base;
+  const mixed=o=>rightBase(o)&&o.cup.milk===needsMilk(o)&&o.cup.ice===o.ice&&o.cup.top===o.top;
+  const starterTops=['pearls','foam','nata'];
+  const availableTops=()=>app.tops.filter(t=>starterTops.includes(t)||app.state.unlocked.includes(t));
   const waitLimit=()=>Math.max(20,33-state.shift.number);
-  const serviceLimit=()=>Math.max(45,60-state.shift.number);
+  const serviceLimit=o=>Math.max(49,66-state.shift.number)+(needsMilk(o)?5:0)+(o.ice?3:0)+(o.top?3:0);
   const mood=o=>o.left/o.limit<.25?'angry':o.left/o.limit<.55?'restless':'calm';
   function valid(s){
-    if(!app||!s||![1,2,3,4].includes(s.version)||typeof s.paused!=='boolean'||!count(s.serial)||
+    if(!app||!s||![1,2,3,4,5].includes(s.version)||typeof s.paused!=='boolean'||!count(s.serial)||
        !within(s.arrival,3)||!Array.isArray(s.orders)||s.orders.length>(s.version>=3?6:3))return false;
     const ids=new Set(),seats=new Set(),occupied=new Set();
+    const modern=s.version===5,stations=modern?equipment:[...bays,'top','lid'];
     for(const o of s.orders){
       if(!o||!Number.isSafeInteger(o.id)||o.id<1||o.id>s.serial||ids.has(o.id)||!app.names.includes(o.name)||
         !app.coats.some(c=>c.id===o.coat)||!drink(o.drink)||(o.top!==null&&!app.tops.includes(o.top))||
@@ -55,20 +63,22 @@ window.BobaService=(()=>{
       if(!c||!stages.includes(c.stage)||(c.flavor!==null&&!drink(c.flavor))||(c.top!==null&&!app.tops.includes(c.top))||
         !within(c.left,pourTime)||(c.stage!=='empty'&&!c.flavor))return false;
       if(s.version>=2){
-        if(typeof o.taken!=='boolean'||!['unused','hand','shelf','given',...(s.version===4?[...equipment,'waitTea','waitLid']:[])].includes(o.cupAt))return false;
-        if(s.version===4){
+        if(typeof o.taken!=='boolean'||!['unused','hand','shelf','given',...(s.version>=4?[...stations,'waitTea','waitLid']:[])].includes(o.cupAt))return false;
+        if(s.version>=4){
           if(o.dessert!==null||o.side!=='none'||o.bake!==0||o.cupAt==='given'||!within(c.duration,pourTime)||
-             typeof c.auto!=='boolean'||(c.actor!==null&&!['barista','cook'].includes(c.actor))||(c.dose!=null&&!app.tops.includes(c.dose))||c.left>c.duration)return false;
+             typeof c.auto!=='boolean'||(c.actor!==null&&!['barista','cook',...(modern?['cleaner']:[])].includes(c.actor))||(c.dose!=null&&!app.tops.includes(c.dose))||c.left>c.duration)return false;
+          if(modern&&(typeof o.ice!=='boolean'||typeof c.milk!=='boolean'||typeof c.ice!=='boolean'||
+             c.base!==(c.flavor?drink(c.flavor).base:null)))return false;
           if(!o.taken&&(o.cupAt!=='unused'||c.stage!=='empty'))return false;
-          if(equipment.includes(o.cupAt)){
+          if(stations.includes(o.cupAt)){
             if(!o.taken||occupied.has(o.cupAt))return false;
             occupied.add(o.cupAt);
-            const done=o.cupAt==='lid'?'ready':'filled';
+            const done=modern?finishedStage[o.cupAt]:o.cupAt==='lid'?'ready':'filled';
             if(c.stage!==operation[o.cupAt]&&c.stage!==done)return false;
             if(c.stage===operation[o.cupAt]&&(!c.duration||!c.left))return false;
           }else if(o.cupAt==='waitTea'||o.cupAt==='waitLid'){
             if(!o.taken||c.stage!==(o.cupAt==='waitTea'?'pouring':'sealing'))return false;
-          }else if(['pouring','topping','sealing'].includes(c.stage))return false;
+          }else if(Object.values(operation).includes(c.stage))return false;
         }
         if(s.version>=3&&!o.taken){if(o.seat!==null)return false;}
         else{if(!Number.isInteger(o.seat)||o.seat<0||o.seat>2||seats.has(o.seat))return false;seats.add(o.seat);}
@@ -84,14 +94,14 @@ window.BobaService=(()=>{
          f.greeted!==undefined&&typeof f.greeted!=='boolean'||f.started!==undefined&&typeof f.started!=='boolean'||
          f.started===false&&(f.served>0||f.missed>0||f.complete||s.orders.length>0)||f.timely!==undefined&&(!count(f.timely)||f.timely>f.served)||
          !count(f.earned)||f.served+s.orders.length>f.quota||f.complete!==(f.served===f.quota)||
-         !Array.isArray(s.dirty)||s.dirty.length!==3||s.dirty.some((d,i)=>typeof d!=='boolean'||d&&seats.has(i))||
+         (!modern&&(!Array.isArray(s.dirty)||s.dirty.length!==3||s.dirty.some((d,i)=>typeof d!=='boolean'||d&&seats.has(i))))||
          !staff||!career||!['shifts','served','missed','cleaned'].every(k=>count(career[k])))return false;
       for(const [role,def] of Object.entries(roles)){
         const w=staff[role];
         if(!w||!Number.isInteger(w.level)||!within(w.level,3)||!count(w.done)||typeof w.onDuty!=='boolean')return false;
         const t=w.task;
         if(t!==null&&(!t||!w.level||!def.kinds.includes(t.kind)||!within(t.left,12)||
-          (t.kind==='wipe'?t.id!==0||!Number.isInteger(t.seat)||!s.dirty[t.seat]:!ids.has(t.id))))return false;
+          (t.kind==='wipe'?modern||t.id!==0||!Number.isInteger(t.seat)||!s.dirty[t.seat]:!ids.has(t.id))))return false;
         if(!t)continue;
         if(!w.onDuty)return false;
         if(t.kind==='wipe')continue;
@@ -99,10 +109,10 @@ window.BobaService=(()=>{
         if(t.kind==='take'){
           if(t.seat!==null||guest!==s.orders.find(o=>!o.taken))return false;
         }else if(!guest.taken||t.seat!==guest.seat)return false;
-        if(s.version===4){
+        if(s.version>=4){
           if(t.kind==='cook'||t.kind==='serveFood')return false;
-          if(['brew','seal','top'].includes(t.kind)&&(!running(guest)||guest.cup.actor!==role))return false;
-          if(t.kind==='serveCup'&&(guest.cup.stage!=='ready'||!['shelf','lid'].includes(guest.cupAt)))return false;
+          if(Object.values(taskByStation).includes(t.kind)&&(!running(guest)||taskByStation[guest.cupAt]!==t.kind||guest.cup.actor!==role))return false;
+          if(t.kind==='serveCup'&&(guest.cup.stage!=='ready'||!['shelf',modern?'shake':'lid'].includes(guest.cupAt)))return false;
           continue;
         }
         if(role==='barista'&&(guest.cupAt!=='shelf'||guest.cup.stage!=={brew:'pouring',top:'filled',seal:'sealing'}[t.kind]))return false;
@@ -115,8 +125,8 @@ window.BobaService=(()=>{
        (h.kind==='cup'?heldOrder.cupAt!=='hand':heldOrder.side!=='done')))return false;
     if(s.orders.some(o=>o.cupAt==='hand' && (h?.kind!=='cup'||o.id!==h.id)))return false;
     if(job!==null){
-      if(s.version>=3&&job?.kind==='clean')return !h&&Number.isInteger(job.seat)&&s.dirty[job.seat]===true&&within(job.left,cleanTime);
-      if(s.version===4)return false;
+      if(!modern&&s.version>=3&&job?.kind==='clean')return !h&&Number.isInteger(job.seat)&&s.dirty[job.seat]===true&&within(job.left,cleanTime);
+      if(s.version>=4)return false;
       const o=job&&s.orders.find(o=>o.id===job.id);
       if(!o?.taken || !(job.kind==='pour'&&h?.id===o.id&&h.kind==='cup'&&o.cup.stage==='pouring'||
         job.kind==='lid'&&h?.id===o.id&&h.kind==='cup'&&o.cup.stage==='sealing'||
@@ -124,8 +134,7 @@ window.BobaService=(()=>{
     }
     return true;
   }
-  function migrate(s){
-    if(s.version===4)return s;
+  function migrateOldService(s){
     if(s.version<3){
       if(s.version===1){
         s.orders.forEach((o,index)=>Object.assign(o,{seat:index,taken:true,cupAt:o.cup.stage==='empty'?'unused':'shelf'}));
@@ -133,7 +142,7 @@ window.BobaService=(()=>{
       }
       for(const o of s.orders)if(!o.taken)o.seat=null;
       const freshState=fresh();
-      Object.assign(s,{shift:freshState.shift,staff:freshState.staff,dirty:freshState.dirty,career:freshState.career});
+      Object.assign(s,{shift:freshState.shift,staff:freshState.staff,career:freshState.career});
       s.shift.started=true;
     }
     s.shift.greeted??=s.shift.served>0||s.orders.length>1||s.orders.some(o=>o.taken);
@@ -174,22 +183,39 @@ window.BobaService=(()=>{
     for(const o of delivered)give(o);
     return s;
   }
+  function migrate(s){
+    if(s.version===5)return s;
+    if(s.version<4)migrateOldService(s);
+    for(const o of s.orders){
+      const c=o.cup,legacy=c.flavor&&drink(c.flavor);
+      o.ice=false;c.ice=false;c.base=legacy?legacy.base:null;
+      // The older dispenser added milk itself, including in cups saved halfway through a pour.
+      c.milk=!!legacy&&legacy.ings.includes('milk');
+      if(c.stage==='ready')c.stage='sealed';
+    }
+    s.job=null;delete s.dirty;
+    if(s.staff.cleaner.task?.kind==='wipe')s.staff.cleaner.task=null;
+    if(s.staff.server.task?.kind==='serveCup')s.staff.server.task=null;
+    s.version=5;
+    return s;
+  }
   function arrive(){
-    const drinks=app.drinks.filter(d=>app.state.unlocked.includes(d.id)),tops=app.tops.filter(t=>app.state.unlocked.includes(t));
+    const drinks=app.drinks.filter(d=>app.state.unlocked.includes(d.id)),tops=availableTops();
     const different=drinks.filter(d=>!orders().some(o=>o.drink===d.id));
-    const recipe=!state.serial?drinks[0]:pick(different.length?different:drinks);
     const id=++state.serial;
+    const firstRecipes=['bsmilk','jasminetea','jasminemt'];
+    const recipe=drinks.find(d=>d.id===firstRecipes[id-1])||pick(different.length?different:drinks);
+    const ice=id<=3?id!==2:Math.random()<.6;
+    const top=id<=3?['foam',null,'nata'][id-1]:(tops.length&&Math.random()<.68?pick(tops):null);
     const limit=waitLimit();
     const cats=app.coats.filter(c=>!c.rare||(app.state.level>=3&&Math.random()<.15));
     orders().push({id,seat:null,taken:false,name:pick(app.names.filter(n=>!orders().some(o=>o.name===n))),coat:pick(cats).id,
-      drink:recipe.id,top:tops.length && id%3!==0?pick(tops):null,dessert:null,limit,left:limit,
+      drink:recipe.id,ice,top:tops.includes(top)?top:null,dessert:null,limit,left:limit,
       side:'none',bake:0,cup:cup(),cupAt:'unused'});
     arrivals.add(orders()[orders().length-1]);
     state.arrival=arrivalTime;
   }
   function remove(id){
-    const o=order(id);
-    if(o?.taken)state.dirty[o.seat]=true;
     for(const w of Object.values(state.staff))if(w.task?.id===id)w.task=null;
     state.orders=orders().filter(o=>o.id!==id);
     if(state.selected===id)state.selected=orders().find(o=>o.taken)?.id??null;
@@ -220,7 +246,6 @@ window.BobaService=(()=>{
     say(o.name+(quality<.25?' left a small tip.':quality<.55?' collected their order.':' loved it!')+' +$'+pay);
     return true;
   }
-  function wipe(seat){state.dirty[seat]=false;state.career.cleaned++;}
   function resetForRebirth(){
     if(!app?.state.cafeService)return;
     const old=app.state.cafeService,next=fresh();
@@ -232,40 +257,45 @@ window.BobaService=(()=>{
   }
   function say(text){notice=text;noticeUntil=performance.now()+3200;}
   const assigned=(role,id,kind)=>{const t=state.staff[role].task;return t?.id===id&&(!kind||t.kind===kind);};
+  function nextStation(o){
+    const c=o.cup;
+    if(c.stage==='empty'||!rightBase(o)||c.milk&&!needsMilk(o)||c.ice&&!o.ice)return 'tea';
+    if(c.stage==='sealed'||c.stage==='ready')return mixed(o)?(c.stage==='sealed'?'shake':'pickup'):'tea';
+    if(needsMilk(o)&&!c.milk)return 'milk';
+    if(o.ice&&!c.ice)return 'ice';
+    if(c.top!==o.top)return 'top';
+    return 'lid';
+  }
   function dock(o,at,recipe,worker=null){
-    const duration=(bays.includes(at)?pourTime:at==='top'?topTime:lidTime)/(worker?1+.25*(state.staff[worker].level-1):1);
-    o.cupAt=at;Object.assign(o.cup,{stage:operation[at],left:duration,duration,auto:!!worker,actor:worker});
-    o.cup.dose=at==='top'?recipe:null;
-    if(bays.includes(at)){o.cup.flavor=recipe;o.cup.top=null;}
+    const duration=durationByStation[at]/(worker?1+.25*(state.staff[worker].level-1):1);
+    const c=o.cup;
+    if(bays.includes(at)){
+      const requested=drink(o.drink);
+      const blend=requested.base===recipe?requested:app.drinks.find(d=>d.base===recipe);
+      Object.assign(c,{flavor:blend.id,base:blend.base,milk:false,ice:false,top:null});
+    }
+    o.cupAt=at;Object.assign(c,{stage:operation[at],left:duration,duration,auto:!!worker,actor:worker,dose:at==='top'?recipe:null});
     if(state.hand?.id===o.id)state.hand=null;
-    if(worker)return {kind:bays.includes(at)?'brew':at==='top'?'top':'seal',id:o.id,seat:o.seat,left:duration};
+    if(worker)return {kind:taskByStation[at],id:o.id,seat:o.seat,left:duration};
   }
   function nextTask(role,w){
     const guests=tickets();
     const make=(kind,id,seat,seconds)=>({kind,id,seat,left:seconds/(1+.35*(w.level-1))});
     if(role==='cashier'){const g=line()[0];return g&&freeSeat()>=0?make('take',g.id,null,2.4):null;}
-    if(role==='cleaner'){
-      const seat=state.dirty.findIndex((d,n)=>d&&!(state.job?.kind==='clean'&&state.job.seat===n));
-      return seat>=0?make('wipe',0,seat,2.5):null;
-    }
-    if(role==='barista'||role==='cook'){
-      // A parked cup is an invitation for help. Manually docked cups remain for their player.
-      const available=guests.filter(g=>g.cupAt==='unused'||g.cupAt==='shelf'||(g.cup.auto&&equipment.includes(g.cupAt)&&!running(g)));
-      for(const g of available){
-        const c=g.cup;
-        if(c.stage==='filled'&&c.flavor===g.drink&&g.top!==c.top&&!occupant('top')){
-          if(role==='cook'||!state.staff.cook.level||!state.staff.cook.onDuty)return dock(g,'top',g.top,role);
-        }
-        if(role==='barista'&&c.stage==='filled'&&c.flavor===g.drink&&g.top===c.top&&!occupant('lid'))return dock(g,'lid',null,role);
-      }
-      if(role==='barista'&&freeBay()){
-        const g=available.find(g=>g.cup.stage==='empty'||g.cup.stage==='filled'&&g.cup.flavor!==g.drink);
-        if(g)return dock(g,freeBay(),g.drink,role);
-      }
-    }
     if(role==='server'){
-      const g=guests.find(g=>g.cup.stage==='ready'&&(g.cupAt==='shelf'||g.cupAt==='lid'&&g.cup.auto));
-      if(g)return make('serveCup',g.id,g.seat,2.1);
+      const g=guests.find(o=>o.cup.stage==='ready'&&mixed(o)&&(o.cupAt==='shelf'||o.cupAt==='shake'&&o.cup.auto));
+      return g?make('serveCup',g.id,g.seat,2.1):null;
+    }
+    // A parked cup is an invitation for help. Manually docked cups remain for their player.
+    const available=guests.filter(g=>g.cupAt==='unused'||g.cupAt==='shelf'||(g.cup.auto&&equipment.includes(g.cupAt)&&!running(g)));
+    for(const g of available.sort((a,b)=>Number(a.cup.stage==='empty')-Number(b.cup.stage==='empty'))){
+      const next=nextStation(g);
+      if(next==='pickup')continue;
+      const specialist=next==='milk'||next==='ice'?'cleaner':next==='top'?'cook':null;
+      const helper=specialist&&state.staff[specialist];
+      if(role!==(helper?.level&&helper.onDuty?specialist:'barista'))continue;
+      const at=next==='tea'?freeBay():next;
+      if(at&&!occupant(at))return dock(g,at,next==='tea'?drink(g.drink).base:g.top,role);
     }
     return null;
   }
@@ -281,12 +311,14 @@ window.BobaService=(()=>{
       const worker=c.actor&&state.staff[c.actor];
       if(worker?.task?.id===o.id)worker.task.left=c.left;
       if(c.left>0)continue;
-      if(o.cupAt==='top')c.top=c.dose??o.top;
+      if(o.cupAt==='milk')c.milk=true;
+      if(o.cupAt==='ice')c.ice=true;
+      if(o.cupAt==='top')c.top=c.dose;
       c.dose=null;
-      c.stage=o.cupAt==='lid'?'ready':'filled';
+      c.stage=finishedStage[o.cupAt];
       if(worker){
         if(worker.task?.id===o.id)worker.task=null;
-        if(o.cupAt==='lid'||c.actor==='cook')worker.done++;
+        if(o.cupAt==='shake'||c.actor==='cook'||c.actor==='cleaner')worker.done++;
       }
       c.actor=null;changed=true;
     }
@@ -298,12 +330,11 @@ window.BobaService=(()=>{
       if(!w.level||!w.onDuty||state.shift.complete)continue;
       if(!w.task){w.task=nextTask(role,w);if(w.task)changed=true;continue;}
       const t=w.task;
-      if(['brew','top','seal'].includes(t.kind))continue;
+      if(Object.values(taskByStation).includes(t.kind))continue;
       t.left=Math.max(0,t.left-dt);
       if(t.left)continue;
       const g=order(t.id);w.task=null;changed=true;
       if(t.kind==='take'){if(take(g,false))w.done++;}
-      else if(t.kind==='wipe'){if(state.dirty[t.seat]){wipe(t.seat);w.done++;}}
       else if(t.kind==='serveCup'&&g){w.done++;give(g);}
     }
     return changed;
@@ -311,7 +342,7 @@ window.BobaService=(()=>{
   function startNext(){
     if(!state.shift.complete)return;
     state.shift=newShift(state.shift.number+1);state.paused=false;state.arrival=arrivalTime;
-    state.selected=null;state.job=null;state.hand=null;state.dirty.fill(false);state.pose=roomApi.spawn();briefing=true;
+    state.selected=null;state.job=null;state.hand=null;state.pose=roomApi.spawn();briefing=true;
     last=performance.now();room.clear();room.frame(0);app.save();render();by('[data-service="begin"]').focus({preventScroll:true});
   }
   function advance(dt){
@@ -321,11 +352,6 @@ window.BobaService=(()=>{
       o.left=Math.max(0,o.left-dt*(o.taken||o===line()[0]?1:.65));
       if(!o.left){remove(o.id);state.shift.missed++;state.career.missed++;app.state.combo=0;say(o.name+' left '+(o.taken?'without their order.':'before ordering.'));changed=true;}
       else if(was!==mood(o))changed=true;
-    }
-    const job=state.job;
-    if(job?.kind==='clean'){
-      job.left=Math.max(0,job.left-dt);
-      if(!job.left){wipe(job.seat);state.job=null;changed=true;say('Clean tray ready for the next guest.');}
     }
     if(advanceMachines(dt))changed=true;
     if(workCrew(dt))changed=true;
@@ -347,60 +373,61 @@ window.BobaService=(()=>{
   function quest(){
     if(briefing)return [null,'Prepare for round '+state.shift.number];
     if(state.shift.complete)return [null,'Round complete'];
-    if(state.job)return ['pickup','Cleaning the pickup pass'];
     const h=held(),o=h||tracked();
     if(h){
-      if(h.cup.stage==='empty'||h.cup.flavor!==h.drink||h.cup.stage==='ready'&&h.cup.top!==h.top)return ['tea','Choose '+drink(h.drink).name+' at the tea brewer'];
-      if(h.cup.stage==='filled'&&h.cup.top!==h.top)return ['top',h.top?'Choose '+app.ingredients[h.top].name:'Clear the topping'];
-      if(h.cup.stage!=='ready')return ['lid','Put the cup in the lid press'];
-      return ['pickup','Bring '+h.name+'’s drink to pickup'];
+      const next=nextStation(h);
+      const steps={tea:'Brew '+drink(h.drink).baseName,milk:'Add milk at the dispenser',ice:'Add ice from the ice bin',
+        top:h.top?'Add '+app.ingredients[h.top].name:'Clear the topping',lid:'Seal the cup in the lid press',
+        shake:'Put the sealed cup in the shaker',pickup:'Bring '+h.name+'’s drink to pickup'};
+      return [next,steps[next]];
     }
     if(o&&equipment.includes(o.cupAt)&&!running(o)&&!assigned('server',o.id))return [counterFor(o.cupAt),'Collect '+o.name+'’s cup'];
     if(o&&['unused','shelf'].includes(o.cupAt)&&!assigned('server',o.id))return ['rack','Pick up a cup for '+o.name];
     const guest=line()[0];
     if(guest&&freeSeat()>=0&&!assigned('cashier',guest.id))return ['line','Ask '+guest.name+' for their order'];
     const other=atRack();if(other)return ['rack','Pick up a cup for '+other.name];
-    if(dirtyTray()>=0)return ['pickup','Clear a tray at pickup'];
     if(o&&running(o))return [counterFor(o.cupAt),machineNames[o.cupAt]+' is working for '+o.name];
     if(o)return ['pickup','Your crew is helping '+o.name];
-    return [null,guest?'Waiting for a clean tray':'The next guest is on the way'];
+    return [null,guest?'Finish a ticket to take another order':'The next guest is on the way'];
   }
   function stationName(id){
-    return {line:'Register',rack:'Cup shelf',tea:'Tea brewer',top:'Topping bowl',lid:'Lid press',pickup:'Pickup pass'}[id]||'';
+    return {line:'Register',rack:'Cup shelf',tea:'Tea brewer',pickup:'Pickup pass'}[id]||machineNames[id]||'';
   }
-  const exists=id=>id==='line'?!!line().length:id==='pickup'?tickets().length>0||state.dirty.includes(true):true;
+  const exists=id=>id==='line'?!!line().length:id==='pickup'?tickets().length>0:true;
   function action(at){
-    if(!at||state.job||chooser)return '';
+    if(!at||chooser)return '';
     const h=held();
     if(at==='line'){const head=line()[0];return head&&freeSeat()>=0?'Ask '+head.name:'';}
-    if(at==='pickup'){
-      if(h?.cup.stage==='ready'&&h.cup.flavor===h.drink&&h.cup.top===h.top)return 'Serve '+h.name;
-      if(!h&&dirtyTray()>=0)return 'Clear pickup tray';
-    }
     if(at==='rack'){
       if(h)return 'Park cup';
-      const g=atRack();if(g)return g.cupAt==='shelf'?'Pick up '+g.name+'’s cup':'Get cup for '+g.name;
+      const g=atRack();return g?(g.cupAt==='shelf'?'Pick up '+g.name+'’s cup':'Get cup for '+g.name):'';
     }
     if(!h){const g=collectable(at);return g?'Collect '+g.name+'’s cup':'';}
-    if(at==='tea'&&freeBay()&&(h.cup.stage==='empty'||h.cup.stage==='filled'||h.cup.stage==='ready'&&(h.cup.top!==h.top||h.cup.flavor!==h.drink)))return h.cup.stage==='empty'?'Choose tea':'Refill cup';
-    if(at==='top'&&!occupant('top')&&h.cup.stage==='filled'&&h.cup.flavor===h.drink&&h.top!==h.cup.top)return h.top?(optionsFor('top',h).length>1?'Choose topping':'Add '+app.ingredients[h.top].name):'Clear topping';
-    if(at==='lid'&&!occupant('lid')&&h.cup.stage==='filled'&&h.cup.flavor===h.drink&&h.cup.top===h.top)return 'Press lid';
-    return '';
+    const next=nextStation(h);
+    if(at==='pickup')return next==='pickup'?'Serve '+h.name:'';
+    if(at==='tea'&&freeBay()&&(next==='tea'||h.cup.stage==='filled'))return h.cup.stage==='empty'?'Choose tea base':'Refill cup';
+    if(at!==next||occupant(at))return '';
+    if(at==='top')return h.top?'Choose topping':'Clear topping';
+    return {milk:'Dispense milk',ice:'Add ice',lid:'Press lid',shake:'Shake drink'}[at]||'';
   }
   function pulse(at,label){
     contact={at,label,age:0};room.pulse?.(at);
   }
   function optionsFor(station,guest){
-    if(station==='tea')return app.drinks.filter(d=>app.state.unlocked.includes(d.id)||d.id===guest.drink);
+    if(station==='tea'){
+      const bases=new Map();
+      for(const d of app.drinks)if(app.state.unlocked.includes(d.id)||d.id===guest.drink)bases.set(d.base,{id:d.base,name:d.baseName});
+      return [...bases.values()];
+    }
     if(!guest.top)return [{id:'none',name:'No topping'}];
-    return app.tops.filter(id=>app.state.unlocked.includes(id)||id===guest.top).map(id=>({id,name:app.ingredients[id].name}));
+    return app.tops.filter(id=>availableTops().includes(id)||id===guest.top).map(id=>({id,name:app.ingredients[id].name}));
   }
   function focusChoice(){
     (by('.bw-recipe-options [data-requested="true"]')||by('.bw-recipe-options button'))?.focus({preventScroll:true});
   }
   function openChooser(o,station){
     const menu=optionsFor(station,o);if(!menu.length)return;
-    const requested=station==='tea'?o.drink:o.top;
+    const requested=station==='tea'?drink(o.drink).base:o.top;
     chooser={id:o.id,station,page:Math.max(0,Math.floor(menu.findIndex(d=>d.id===requested)/9))};
     room.clear();room.releaseLook();render();focusChoice();
   }
@@ -411,10 +438,10 @@ window.BobaService=(()=>{
   function showChoices(){
     const panel=by('.bw-recipe-panel');panel.hidden=!chooser;
     if(!chooser)return;
-    const g=order(chooser.id),tea=chooser.station==='tea',requested=tea?g.drink:g.top;
+    const g=order(chooser.id),tea=chooser.station==='tea',requested=tea?drink(g.drink).base:g.top;
     const menu=optionsFor(chooser.station,g),pages=Math.ceil(menu.length/9),start=chooser.page*9;
-    by('.bw-recipe-card h2').textContent=tea?'Choose a tea':'Choose a topping';
-    by('.bw-recipe-ticket').textContent=g.name+' ordered '+(tea?drink(g.drink).name:app.ingredients[g.top]?.name||'no topping')+
+    by('.bw-recipe-card h2').textContent=tea?'Choose a tea base':'Choose a topping';
+    by('.bw-recipe-ticket').textContent=g.name+' ordered '+(tea?drink(g.drink).name+' · Brew '+drink(g.drink).baseName:app.ingredients[g.top]?.name||'no topping')+
       (tea&&g.cup.stage!=='empty'?' · Replaces the tea in this cup.':!tea&&g.cup.top?' · Replaces the current topping.':'');
     const stamp=[g.id,chooser.station,start,menu.map(d=>d.id)].join('|');
     if(panel.dataset.menu!==stamp){
@@ -448,8 +475,7 @@ window.BobaService=(()=>{
     if(at==='line'){
       const front=line()[0];if(take(front,true)){pulse(at,'Ticket written');say(front.name+'’s ticket is on the rail.');}
     }else if(at==='pickup'){
-      if(!h){state.job={kind:'clean',seat:dirtyTray(),left:cleanTime};pulse(at,'Wiping tray');}
-      else{state.hand=null;give(h);pulse(at,'Drink served');}
+      state.hand=null;give(h);pulse(at,'Drink served');
     }else if(at==='rack'){
       if(h){h.cupAt='shelf';h.cup.auto=false;state.hand=null;pulse(at,'Cup parked');}
       else{const g=atRack();g.cupAt='hand';g.cup.auto=false;state.hand={kind:'cup',id:g.id};state.selected=g.id;pulse(at,'Cup picked up');}
@@ -457,7 +483,7 @@ window.BobaService=(()=>{
       const g=collectable(at);
       if(!g)return;g.cupAt='hand';g.cup.auto=false;g.cup.actor=null;state.hand={kind:'cup',id:g.id};state.selected=g.id;pulse(at,'Cup collected');
     }else if(at==='tea'||at==='top'&&optionsFor('top',h).length>1){openChooser(h,at);return;}
-    else{dock(h,at,at==='top'?h.top:null);pulse(at,at==='top'?'Scooping':'Lid loaded');}
+    else{dock(h,at,at==='top'?h.top:null);pulse(at,{milk:'Pouring milk',ice:'Dropping ice',top:'Scooping',lid:'Pressing lid',shake:'Shaking drink'}[at]);}
     app.save();render();
   }
   function sprint(metres){
@@ -467,32 +493,41 @@ window.BobaService=(()=>{
     if(Math.random()>=-Math.expm1(-.004*metres))return;
     guest.cup=cup();say('Spilled! Refill '+guest.name+'’s cup at '+stationName('tea')+'.');app.save();render();
   }
-  function color(id){return id==='classic'?'#c88a60':id==='jasminemt'?'#a4bd80':id==='bsmilk'?'#ac7055':app.ingredients[drink(id).ings[0]].c;}
+  function color(c){
+    const base=drink(c.flavor)?.baseColor||'#c99566';
+    if(!c.milk)return base;
+    const cream=[255,239,215];
+    return '#'+cream.map((v,i)=>Math.round(parseInt(base.slice(1+2*i,3+2*i),16)*.62+v*.38).toString(16).padStart(2,'0')).join('');
+  }
   function objects(){
     const actor=o=>({id:o.id,name:o.name,coat:o.coat,mood:mood(o),arriving:arrivals.has(o)});
     function machine(id){
-      const o=occupant(id);
-      return {label:machineNames[id],running:running(o),ready:!!o&&!running(o),jobId:o?.id??null,owner:o?.name||'',flavor:o?.cup.flavor??null,
-        color:o?.cup.flavor?color(o.cup.flavor):'#c99566',left:o?.cup.left||0,total:o?.cup.duration||0,
-        progress:o?(o.cup.duration?1-o.cup.left/o.cup.duration:1):0,detail:o?o.name:''};
+      const o=occupant(id),c=o?.cup;
+      return {label:machineNames[id],running:running(o),ready:!!o&&!running(o),jobId:o?.id??null,owner:o?.name||'',flavor:c?.flavor??null,
+        base:c?.base??null,baseColor:drink(c?.flavor)?.baseColor||'#c99566',color:c?color(c):'#c99566',stage:c?.stage??null,
+        milk:!!c?.milk,ice:!!c?.ice,top:c?.top??null,pendingTop:c?.dose??null,left:c?.left||0,total:c?.duration||0,
+        progress:o?(c.duration?1-c.left/c.duration:1):0,detail:o?o.name:''};
     }
-    const items={rack:{label:'Cup shelf'},tea:{label:'Tea brewer',bays:bays.map(id=>occupant(id)?machine(id):null)},top:machine('top'),lid:machine('lid'),
-      line:{label:'Register',guests:line().map(actor)},pickup:{label:'Pickup pass',dirty:state.dirty.includes(true),guests:tickets().map(actor)},crew:[]};
+    const items={rack:{label:'Cup shelf'},tea:{label:'Tea brewer',bays:bays.map(id=>occupant(id)?machine(id):null)},
+      line:{label:'Register',guests:line().map(actor)},pickup:{label:'Pickup pass',guests:tickets().map(actor)},crew:[]};
+    for(const id of ['milk','ice','top','lid','shake'])items[id]=machine(id);
     for(const [role,w] of Object.entries(state.staff))if(w.level&&w.onDuty){
-      const t=w.task,anchor={take:'line',wipe:'pickup',brew:'tea',top:'top',seal:'lid',serveCup:'pickup'};
+      const t=w.task,anchor={take:'line',brew:'tea',milk:'milk',ice:'ice',top:'top',seal:'lid',shake:'shake',serveCup:'pickup'};
       items.crew.push({role,name:roles[role].name,coat:roles[role].coat,working:!!t,
-        station:t?anchor[t.kind]:{cashier:'line',cleaner:'pickup',barista:'tea',cook:'top',server:'pickup'}[role]});
+        station:t?anchor[t.kind]:{cashier:'line',cleaner:'milk',barista:'tea',cook:'top',server:'pickup'}[role]});
     }
     return items;
   }
   function ticket(o){
-    return '<button type="button" class="bs-ticket" data-service="track" data-id="'+o.id+'" data-mood="'+mood(o)+'" aria-pressed="'+(state.selected===o.id)+'"><span><b>#'+String(o.id).padStart(2,'0')+' · '+o.name+'</b><i data-time="'+o.id+'"></i></span><strong>'+drink(o.drink).name+'</strong><small>'+(o.top?app.ingredients[o.top].name:'No topping')+'</small><i class="bs-meter"><i data-patience="'+o.id+'"></i></i></button>';
+    const d=drink(o.drink),liquid=d.baseName+' · '+(needsMilk(o)?'Milk':'No milk');
+    const finish=(o.ice?'Ice':'No ice')+' · '+(o.top?app.ingredients[o.top].name:'No topping');
+    return '<button type="button" class="bs-ticket" data-service="track" data-id="'+o.id+'" data-mood="'+mood(o)+'" aria-pressed="'+(state.selected===o.id)+'"><span><b>#'+String(o.id).padStart(2,'0')+' · '+o.name+'</b><i data-time="'+o.id+'"></i></span><strong>'+d.name+'</strong><small>'+liquid+'<br>'+finish+'</small><i class="bs-meter"><i data-patience="'+o.id+'"></i></i></button>';
   }
   function taskText(t){
     if(!t)return 'Waiting for work';
-    const o=order(t.id),guest=o?.name||'guest';
-    return {take:'Taking '+guest+'’s order',wipe:'Clearing a pickup tray',brew:'Brewing for '+guest,top:'Adding boba for '+guest,
-      seal:'Sealing '+guest+'’s cup',serveCup:'Taking a drink to '+guest}[t.kind];
+    const guest=order(t.id)?.name||'guest';
+    return {take:'Taking '+guest+'’s order',brew:'Brewing for '+guest,milk:'Adding milk for '+guest,ice:'Adding ice for '+guest,top:'Adding topping for '+guest,
+      seal:'Sealing '+guest+'’s cup',shake:'Shaking '+guest+'’s cup',serveCup:'Taking a drink to '+guest}[t.kind];
   }
   function staffCost(role){return roles[role].cost*(state.staff[role].level+1);}
   function crewPanel(){
@@ -586,14 +621,16 @@ window.BobaService=(()=>{
     const h=held(),hand=by('.bw-hand');
     hand.hidden=!h;
     if(h){
-      hand.className='bw-hand '+(h.cup.stage==='ready'?'bw-h-cup bw-sealed':'bw-h-cup')+(h.cup.top?' bw-topped':'');
-      const contents=h.cup.stage==='ready'?'Sealed cup':h.cup.stage==='filled'?'Open cup · '+drink(h.cup.flavor).name:h.cup.flavor?drink(h.cup.flavor).name:'Empty cup';
-      hand.style.setProperty('--brew',h.cup.flavor?color(h.cup.flavor):'#e3cbb943');hand.querySelector('b').textContent=h.name+' · '+contents;}
+      const c=h.cup,sealed=c.stage==='sealed'||c.stage==='ready';
+      hand.className='bw-hand bw-h-cup'+(sealed?' bw-sealed':'')+(c.top?' bw-topped':'');
+      const contents=c.stage==='ready'?'Shaken · ready to serve':c.stage==='sealed'?'Sealed · ready to shake':
+        c.base?[drink(c.flavor).baseName,c.milk?'milk':'',c.ice?'ice':'',c.top?app.ingredients[c.top].name:''].filter(Boolean).join(' · '):'Empty cup';
+      hand.style.setProperty('--brew',c.base?color(c):'#e3cbb943');hand.querySelector('b').textContent=h.name+' · '+contents;}
     room.paint(objects());if(!active())room.frame(0);readout='';markers();patienceDisplay();
   }
   function machineHint(at){
     const h=held();
-    if(!h||action(at)||!['tea','top','lid'].includes(at))return '';
+    if(!h||action(at)||!['tea','milk','ice','top','lid','shake'].includes(at))return '';
     if(at==='tea'&&!freeBay()||at!=='tea'&&occupant(at)){
       return 'Busy · park your cup on the shelf to collect another';
     }
@@ -601,19 +638,16 @@ window.BobaService=(()=>{
   }
   function markers(){
     const at=roomApi.nearest(state.pose,exists),[to,title]=quest(),dir=roomApi.direction(state.pose,to),cmd=action(at);
-    const job=state.job,left=job?.left;
     let location='';
     if(dir)location=Math.abs(dir.angle)>.48?(Math.abs(dir.angle)>2.45?'Turn around':dir.angle>0?'Turn right':'Turn left'):
       dir.distance>1.62?'Walk forward':'Within reach';
     const status=performance.now()<noticeUntil?notice:machineHint(at);
-    const key=[at,to,title,cmd,location,dir?.distance.toFixed(1),job&&Math.ceil(left*10),status,state.paused].join('|');
+    const key=[at,to,title,cmd,location,dir?.distance.toFixed(1),status,state.paused].join('|');
     if(readout!==key){
       readout=key;const button=by('.bw-use');
-      button.textContent=job?'Working…':cmd||'Interact';button.disabled=!cmd||!!job||state.paused;
+      button.textContent=cmd||'Interact';button.disabled=!cmd||state.paused;
       button.dataset.near=at||'';by('.bw-step').textContent=title;
-      by('.bw-way').textContent=job?'Wiping · '+left.toFixed(1)+'s':(dir?location+' · '+dir.distance.toFixed(1)+' m':'');
-      by('.bw-job').hidden=!job;
-      if(job){const duration=cleanTime;by('.bw-job i').style.width=(100*(1-left/duration))+'%';}
+      by('.bw-way').textContent=dir?location+' · '+dir.distance.toFixed(1)+' m':'';
       by('.bs-msg').textContent=status;
     }
     const p=state.pose, map=by('.bw-map'),dot=by('.bw-player'),goal=by('.bw-dest');
@@ -672,9 +706,9 @@ window.BobaService=(()=>{
     app=config;dialog=document.getElementById('bobaService');
     dialog.innerHTML='<header class="bs-head"><div class="bs-brand"><button class="bs-exit bw-home" data-service="close" type="button" aria-label="Main menu" title="Main menu"></button><i class="bw-avatar" aria-hidden="true"></i><h1>Chef’s Café</h1></div><div class="bs-head-actions"><div class="bw-currency" title="Tips"><b class="bs-money"></b></div><div class="bw-levelchip" title="Café level"><span class="bs-level"></span><i class="bw-xp"><i></i></i></div><button class="bs-exit bw-crew-button" data-service="crew" type="button">Crew</button><button class="bs-pause" data-service="pause" type="button"></button></div></header>'+
     '<main class="bs-work"><div class="bw-view" tabindex="0" aria-label="First-person café. Move the mouse to look, WASD to walk, Shift to sprint, E to interact, and Q to switch tickets. Escape pauses and shows the cursor."></div><section class="bw-rail" aria-label="Order rail"><div class="bw-shift-label"><b class="bw-shift-count"></b><small class="bw-line-count"></small></div><div class="bs-tickets"></div><div class="bw-machine-timers" aria-label="Workstation timers"></div><small class="bw-on-floor"></small></section><div class="bw-map" role="img"><i class="bw-player"></i><i class="bw-dest"></i></div><i class="bw-reticle" aria-hidden="true"></i>'+
-    '<div class="bw-hand" hidden><div class="bw-held-art"><i></i><i></i></div><b></b></div><div class="bw-controls"><div class="bw-joystick" aria-label="Movement stick"><i></i></div><div class="bw-guide"><strong class="bw-step"></strong><small class="bw-action-pulse" hidden></small><small class="bw-way"></small><i class="bw-job" hidden><i></i></i><small class="bs-msg" role="status"></small></div><button class="bw-use" type="button" data-service="use"></button></div>'+
+    '<div class="bw-hand" hidden><div class="bw-held-art"><i></i><i></i></div><b></b></div><div class="bw-controls"><div class="bw-joystick" aria-label="Movement stick"><i></i></div><div class="bw-guide"><strong class="bw-step"></strong><small class="bw-action-pulse" hidden></small><small class="bw-way"></small><small class="bs-msg" role="status"></small></div><button class="bw-use" type="button" data-service="use"></button></div>'+
     '<div class="bw-legend"><span class="bw-desktop-keys">WASD walk · Mouse look · Shift sprint · E use · Q tickets · C crew · Esc pause</span><span class="bw-mobile-keys">Stick to walk · Drag to look</span><span class="bw-turns"><button type="button" class="bw-sprint" aria-pressed="false">Sprint</button><button type="button" data-service="left" aria-label="Turn left">↶</button><button type="button" data-service="right" aria-label="Turn right">↷</button></span></div></main>'+
-    '<aside class="bw-recipe-panel" hidden><section class="bw-recipe-card" role="dialog" aria-modal="true" aria-labelledby="bwRecipeHeading"><header><h2 id="bwRecipeHeading">Choose a tea</h2><button type="button" class="bw-recipe-close" data-service="recipeclose" aria-label="Close recipe menu">Close</button></header><p class="bw-recipe-ticket"></p><div class="bw-recipe-options"></div><nav class="bw-recipe-pages" aria-label="Recipe pages"><button type="button" data-service="prevtea">Previous</button><span></span><button type="button" data-service="nexttea">More teas</button></nav></section></aside>'+
+    '<aside class="bw-recipe-panel" hidden><section class="bw-recipe-card" role="dialog" aria-modal="true" aria-labelledby="bwRecipeHeading"><header><h2 id="bwRecipeHeading">Choose a tea base</h2><button type="button" class="bw-recipe-close" data-service="recipeclose" aria-label="Close recipe menu">Close</button></header><p class="bw-recipe-ticket"></p><div class="bw-recipe-options"></div><nav class="bw-recipe-pages" aria-label="Recipe pages"><button type="button" data-service="prevtea">Previous</button><span></span><button type="button" data-service="nexttea">More teas</button></nav></section></aside>'+
     '<aside class="bs-paused" hidden><div><span>☾</span><h2>Round paused</h2><p>Your cats and machines will wait.</p><button type="button" data-service="pause">Resume round</button></div></aside>'+
     '<aside class="bw-receipt" hidden><section role="status"><small>Midnight Paws Café</small><h2></h2><div class="bw-round-stars" role="img"></div><p></p><ul class="bw-round-ratings"></ul><button type="button" data-service="next">Next round</button></section></aside>'+
     '<aside class="bw-crewboard" hidden><section role="dialog" aria-label="Café crew"><header><div><h2>Café crew</h2><strong class="bw-crew-wallet"></strong></div><button type="button" data-service="crewclose">Back to café</button></header><div class="bw-crew-list"></div></section></aside><div class="bs-save-warning" role="alert"></div>';

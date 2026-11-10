@@ -202,6 +202,9 @@
 .bw-machine-timer[data-ready=true] {background:#315b4f}
 .bw-machine-timer[data-ready=true] small {font-weight:bold;color:#d0f6d8}
 .bw-machine-timer[data-ready=true] meter::-webkit-meter-optimum-value {background:#ace2bf}
+.bw-machine-timer[data-machine=milk] {border-inline-start:3px solid #f3e4c9}
+.bw-machine-timer[data-machine=ice] {border-inline-start:3px solid #9bdae6}
+.bw-machine-timer[data-machine=shake] {border-inline-start:3px solid #d8acd7}
 .bw-action-pulse {font-size:11px;color:#bdeaca;font-variant-numeric:tabular-nums}
 @media(max-width:600px) {
   .bw-recipe-card {padding:14px;gap:7px}.bw-recipe-options{gap:5px}
