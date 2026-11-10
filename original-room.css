@@ -38,7 +38,7 @@
 .bw-view[data-renderer="css"] .bw-name { bottom: -1%; background: #423c38; border-color: #795f4c; color: #f6e7cd; font-size: 11px; }
 .bw-slate { align-content: center; gap: 12px; background: #363c39; font: bold 13px/1.3 system-ui, sans-serif; }
 .bw-slate b { font-size: 23px; color: #bbddc5; }
-.bw-person { transition: transform .45s ease-out; }
+.bw-person.bw-staff { transition: transform .45s ease-out; }
 .bw-person .bw-cat-face { inset: 0; width: 100%; height: 100%; }
 .bw-person.bw-staff::after {
   content: ""; position: absolute; left: 29%; right: 29%; bottom: 5%; height: 17%;

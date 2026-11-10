@@ -13,11 +13,11 @@
 <script src="market-scene.js?v=5"></script>
 <script src="market-cooking.js?v=5"></script>
 <script src="market.js?v=5"></script>
-<link rel="stylesheet" href="cafe-service.css?v=13">
-<link rel="stylesheet" href="original-room.css?v=13">
-<script src="cafe-workers.js?v=13"></script>
-<script src="cafe-room.js?v=13"></script>
-<script src="cafe-service.js?v=13"></script>
+<link rel="stylesheet" href="cafe-service.css?v=14">
+<link rel="stylesheet" href="original-room.css?v=14">
+<script src="cafe-workers.js?v=14"></script>
+<script src="cafe-room.js?v=14"></script>
+<script src="cafe-service.js?v=14"></script>
 <style>
 /* Layout: one screen, no scroll. HUD strip / night café scene (flexible) / back bar = two tiled benches of machines + a prep column (cups, shaker, trash) right beside them. Deliberately single dark theme. */
 :root{
@@ -868,12 +868,6 @@ body.walk.picking #leaveStation{display:block;margin:5px auto}
       <h2 class="bw-round-title" id="bwRoundTitle">Round 1</h2>
       <p class="bw-round-goal"></p>
       <p class="bw-round-saved" hidden></p>
-      <ol class="bw-round-route" aria-label="Service route">
-        <li><b>Register</b><span>Ask the next cat and stay nearby for two seconds while you write the ticket.</span></li>
-        <li><b>Tea bar</b><span><span class="bw-round-desktop">Press <kbd>E</kbd> for a cup, then <kbd>E</kbd> to brew.</span><span class="bw-round-touch">Take a cup, then tap the brewer.</span> Add milk, ice and toppings as ordered.</span></li>
-        <li><b>Pickup</b><span>Seal the cup, run it through the shaker, then serve.</span></li>
-      </ol>
-      <p class="bw-round-tip">Watch the machine timers. Finished cups wait for you.</p>
       <div class="bw-round-actions">
         <button type="button" data-service="begin">Start round</button>
         <button type="button" data-service="crew">Manage crew</button>

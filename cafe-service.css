@@ -175,7 +175,6 @@
   display:flex;align-items:center;gap:9px;text-align:left;min-height:49px;padding:7px 9px;
   background:#fff8e9;border:1px solid #bfae93;border-radius:9px;color:#343137;font-weight:750;line-height:1.2;
 }
-#bobaService .bw-recipe-options button[data-requested=true] {background:#dfedda;border-color:#60856f}
 #bobaService .bw-recipe-options button:hover {border-color:#355f50;box-shadow:inset 0 0 0 1px #355f50}
 .bw-recipe-options kbd {
   display:grid;place-items:center;flex:none;min-width:25px;height:25px;padding-inline:3px;
@@ -219,4 +218,49 @@
 @media(max-height:470px) {
   .bw-recipe-panel {padding:6px}.bw-recipe-card{padding:10px 14px;gap:4px}
   .bw-recipe-card h2{font-size:20px}#bobaService .bw-recipe-options button{min-height:35px}
+}
+
+/* Only open orders occupy the upper-left rail. A ticket keeps its place while selected. */
+#bobaService .bw-rail {
+  width:min(280px,39vw);max-width:none;max-height:calc(100% - 100px);overflow-y:auto;
+  scrollbar-width:thin;overscroll-behavior:contain;padding:0;border:0;background:none;box-shadow:none;
+}
+.bw-rail:has(.bs-tickets:empty){display:none}
+.bw-rail .bs-tickets {display:grid;gap:7px;margin:0}
+#bobaService .bs-ticket {
+  width:100%;max-width:none;padding:8px 12px;gap:3px;border-width:0 0 0 4px;
+  border-radius:3px 9px 9px 3px;box-shadow:0 2px 8px #27222d40;
+}
+#bobaService .bs-ticket strong {font:750 20px/1.15 var(--body,system-ui);letter-spacing:-.02em}
+#bobaService .bs-ticket>span {font-size:12px;line-height:1.15;color:#614c48}
+#bobaService .bs-ticket small {font-size:14px;line-height:1.27}
+#bobaService .bs-ticket .bs-meter {margin-top:2px;border-radius:3px}
+#bobaService .bw-shift-label {flex-direction:column;align-items:center;gap:0;white-space:nowrap}
+.bw-process {position:absolute;top:85px;right:13px;max-width:36%;z-index:1;pointer-events:none;text-align:right}
+.bw-process .bw-machine-timers {grid-template-columns:1fr;margin:0}
+.bw-on-floor:not(:empty) {background:#242038e8;padding:3px 5px;border-radius:5px}
+.bw-legend:has(.bw-turns) {display:none}
+#bobaService .bw-controls {bottom:15px}
+#bobaService .bw-guide {min-width:0}
+.bw-round-actions {margin-top:17px}
+.bw-recipe-card h2:focus {outline:none}
+@media(pointer:coarse),(max-width:740px){
+  .bw-legend:has(.bw-turns) {display:flex}
+  #bobaService .bw-controls {bottom:max(45px,env(safe-area-inset-bottom))}
+  #bobaService .bw-rail {width:min(215px,53vw)}
+  #bobaService .bs-ticket {padding:6px 8px;gap:2px}
+  #bobaService .bs-ticket strong {font-size:16px}
+  #bobaService .bs-ticket small {font-size:12px}
+  #bobaService .bs-ticket>span {font-size:11px}
+  .bw-process {right:7px;top:58px}
+}
+@media(max-width:600px){
+  #bobaService .bs-head {flex-wrap:wrap;row-gap:2px}
+  #bobaService .bw-shift-label {order:1;flex:0 0 100%;flex-direction:row;justify-content:space-between}
+  #bobaService .bw-shift-count,#bobaService .bw-line-count {font-size:11px}
+}
+@media(max-height:460px){
+  #bobaService .bw-controls {bottom:7px}
+  #bobaService .bw-rail {width:215px;max-height:calc(100% - 70px)}
+  .bw-round-card {display:block}
 }

@@ -22,6 +22,7 @@ window.BobaRoom = (() => {
       .sort((a,b)=>(Math.abs(a.angle)+a.distance*.12)-(Math.abs(b.angle)+b.distance*.12))[0]?.id || null;
   }
   const radians=degrees=>degrees*Math.PI/180;
+  const secondsLeft=seconds=>(Math.ceil(seconds*10)/10).toFixed(1)+'s';
   function workClock(job,state){
     if(!job)return null;
     const cup=state?.orders?.find(order=>order.id===job.jobId)?.cup;
@@ -31,7 +32,7 @@ window.BobaRoom = (() => {
   }
   function machineReadout(job,clock){
     if(!job||!clock)return '';
-    return (job.caption?job.caption+' ':job.jobId?'#'+job.jobId+' ':'')+(job.ready?'Ready':clock.left.toFixed(1)+'s');
+    return (job.caption?job.caption+' ':job.jobId?'#'+job.jobId+' ':'')+(job.ready?'Ready':secondsLeft(clock.left));
   }
   function counterTask(id,state){
     if (id==='line') {
@@ -42,15 +43,17 @@ window.BobaRoom = (() => {
     const caption=task&&{take:'Order',serveCup:'Serve'}[task.kind];
     return caption?{caption,left:task.left}:null;
   }
+  function guestSpot(pickup,index) {
+    return {x:spot(pickup?'pickup':'line').x+index*(pickup?.54:.94),z:-4.08-index*(pickup?.82:1.05)};
+  }
   function actors(items) {
     const people=[];
     for(const id of ['line','pickup']){
-      const s=spot(id),pickup=id==='pickup';
+      const pickup=id==='pickup';
       for(const [index,guest] of (items[id]?.guests||[]).entries()){
-        const spacing=pickup?.82:1.05;
         people.push({key:'guest:'+guest.id,coat:guest.coat,name:guest.name,mood:guest.mood,
-          x:s.x+index*(pickup?.54:.94),z:-4.08-index*spacing,y:index?.01:.48,
-          yaw:index?(pickup?-.45:-.72):0,front:index===0&&!pickup,arriving:guest.arriving});
+          ...guestSpot(pickup,index),y:index?.01:.48,
+          yaw:index?(pickup?-.45:-.72):0,walk:guest.walk});
       }
     }
     for(const worker of items.crew||[]){
@@ -412,8 +415,7 @@ window.BobaRoom = (() => {
         if(!cached||cached.coat!==a.coat){
           if(cached){release(cached.model.g);release(cached.shadow);}
           const model=art.cat(a.coat,a.apron);model.g.scale.setScalar(a.apron?1.35:1.23);
-          const enter=motion&&a.arriving,atBell=enter&&a.front&&!config.state()?.shift?.greeted;
-          model.g.position.set(atBell?a.x+.24:enter?3.58:a.x,enter?.01:a.y,atBell?a.z-.65:enter?-9.4:a.z);scene.add(model.g);
+          model.g.position.set(a.walk?.x??a.x,a.y,a.walk?.z??a.z);scene.add(model.g);
           cached={model,shadow:shadow(scene,a.x,.015,a.z,1.03,.85),coat:a.coat,phase:rand()*6.28};actorsById.set(a.key,cached);
         }
         cached.target=a;
@@ -427,8 +429,9 @@ window.BobaRoom = (() => {
       const blend=motion?1-Math.exp(-dt*9):1;
       for(const a of actorsById.values()){
         const t=a.target,m=a.model;
-        const dx=t.x-m.g.position.x,dz=t.z-m.g.position.z,dist=Math.hypot(dx,dz),step=motion?Math.min(dist,dt*2.35):dist;
-        if(dist>.001){m.g.position.x+=dx/dist*step;m.g.position.z+=dz/dist*step;}
+        const dx=t.x-(t.walk?.x??m.g.position.x),dz=t.z-(t.walk?.z??m.g.position.z),dist=Math.hypot(dx,dz);
+        if(t.walk){m.g.position.x=t.walk.x;m.g.position.z=t.walk.z;}
+        else if(dist>.001){const step=motion?Math.min(dist,dt*2.35):dist;m.g.position.x+=dx/dist*step;m.g.position.z+=dz/dist*step;}
         a.shadow.position.set(m.g.position.x,.015,m.g.position.z);
         const height=motion && !t.apron && dist>.02 ? .01+(t.y-.01)*Math.max(0,1-dist/.45) : t.y;
         m.g.position.y=height+(motion?Math.sin(time*(dist>.06?12:t.working?4:2)+a.phase)*(dist>.06?.035:.015):0);
@@ -573,7 +576,7 @@ window.BobaRoom = (() => {
       const el=plane(s.x,1.37,s.z+.13,s.id==='tea'?1.45:.75,.87,s.angle,'bw-prop');
       points.set(s.id,el);
     }
-    const fallbackMeters=new Map();
+    const fallbackMeters=new Map(),fallbackGuests=new Map();
     const parts='<i class="bw-eq-a"></i><i class="bw-eq-b"></i><i class="bw-eq-c"></i><i class="bw-eq-d"></i>';
     const idleSign={milk:'Milk',ice:'Ice',top:'Scoop',lid:'Seal',shake:'Shake'};
     function paintFallback(items) {
@@ -614,15 +617,25 @@ window.BobaRoom = (() => {
       for(const a of actors(items)){
         keep.add(a.key);let el=guestPlanes.get(a.key);
         if(!el){el=plane(a.x,a.y+.69,a.z,1.12,1.20,0,'bw-person','<div class="bw-cat-face">'+config.portrait(a.coat)+'</div>');guestPlanes.set(a.key,el);}
-        const w=1.12*unit,h=1.20*unit;
-        el.style.transform='translate3d('+(a.x*unit-w/2)+'px,'+(-(a.y+.69)*unit-h/2)+'px,'+(a.z*unit)+'px) rotateY('+a.yaw+'rad)';
+        fallbackGuests.set(a.key,a);
         el.dataset.mood=a.mood||'calm';
+        el.dataset.actor=a.key;
         if(a.apron)el.classList.add('bw-staff');
       }
-      for(const [key,el] of guestPlanes)if(!keep.has(key)){el.remove();guestPlanes.delete(key);}
+      for(const [key,el] of guestPlanes)if(!keep.has(key)){el.remove();guestPlanes.delete(key);fallbackGuests.delete(key);}
+      positionFallbackGuests();
+    }
+    function positionFallbackGuests(){
+      for(const [key,a] of fallbackGuests){
+        const p=a.walk||a,distance=Math.hypot(a.x-p.x,a.z-p.z);
+        const height=a.walk ? .01+(a.y-.01)*Math.max(0,1-distance/.45) : a.y;
+        const transform='translate3d('+((p.x-.56)*unit)+'px,'+(-(height+.69+.60)*unit)+'px,'+(p.z*unit)+'px) rotateY('+a.yaw+'rad)';
+        const el=guestPlanes.get(key);if(el.style.transform!==transform)el.style.transform=transform;
+      }
     }
     function tickFallback(){
       const st=config.state();
+      positionFallbackGuests();
       for(const {face,parent,job,idle,counter} of fallbackMeters.values()){
         if(counter){
           const task=counterTask(counter,st);face.hidden=!task;
@@ -761,5 +774,5 @@ window.BobaRoom = (() => {
     }
     return {frame,paint,pulse,clear,resize,captureLook,releaseLook,turn(amount){const p=config.state().pose;p.yaw=wrap(p.yaw+amount);}};
   }
-  return {stations,spot,nearest,direction,spawn,bounded,create,reach};
+  return {stations,spot,guestSpot,nearest,direction,spawn,bounded,create,reach,secondsLeft};
 })();
